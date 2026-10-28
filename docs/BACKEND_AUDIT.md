@@ -2,8 +2,8 @@
 
 **Project:** Mentor Connect  
 **Backend Owner:** Sneha Viradiya  
-**Date of Audit:** October 28, 2026  
-**Repository:** [https://github.com/Abhay750/Mentor-Connect](https://github.com/Abhay750/Mentor-Connect)  
+**Repository (Submission):** [https://github.com/snehaviradiya/Mentor-Connect](https://github.com/snehaviradiya/Mentor-Connect)  
+**Upstream Team Repository:** [https://github.com/Abhay750/Mentor-Connect](https://github.com/Abhay750/Mentor-Connect)  
 **Sprint:** Sprint 1 — Backend Engineering & Persistence Foundation  
 
 ---

@@ -1,9 +1,9 @@
 # Mentor Connect
 
 **Institution:** ADYPU (Ajeenkya DY Patil University)  
-**Project Type:** College Capstone Project  
-**Repository:** [https://github.com/Abhay750/Mentor-Connect.git](https://github.com/Abhay750/Mentor-Connect.git)  
-**Status:** Milestone 1 — Initial Documentation & Planning (Architecture & Scaffolding Phase)
+**Repository (Submission):** [https://github.com/snehaviradiya/Mentor-Connect](https://github.com/snehaviradiya/Mentor-Connect)  
+**Upstream Team Repository:** [https://github.com/Abhay750/Mentor-Connect.git](https://github.com/Abhay750/Mentor-Connect.git)  
+**Status:** Milestone 3 — Backend Foundation, APIs & Verified Persistence  
 
 ---
 
