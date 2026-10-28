@@ -37,14 +37,14 @@ Undergraduate students frequently face challenges finding timely, personalized a
 
 | Feature | Scope / Description | Proposed Owner(s) | Status |
 | :--- | :--- | :--- | :--- |
-| **Mentor Discovery** | Search and filter mentors by department, skills, and topics | Abhay Kumar | **Planned** |
-| **Mentor Profiles** | Public profile pages, credentials, and mentorship focus areas | Jiya Srivastava / Abhay Kumar | **Planned** |
-| **Availability Management** | Time slot calendar, recurring availability, and booking rules | Sneha Viradiya | **Planned** |
-| **Appointment Booking** | Booking flow, slot locking, confirmation, and scheduling logic | Abhay Kumar / Sneha Viradiya | **Planned** |
+| **Mentor Discovery** | Search and filter mentors by department, skills, and topics | Abhay Kumar / Sneha Viradiya | **Implemented (Frontend + Backend API)** |
+| **Mentor Profiles** | Public profile pages, credentials, and mentorship focus areas | Jiya Srivastava / Abhay Kumar / Sneha Viradiya | **Implemented (Frontend + Backend API)** |
+| **Availability Management** | Time slot calendar, recurring availability, and booking rules | Sneha Viradiya | **Implemented (Backend API & Persistence)** |
+| **Appointment Booking** | Booking flow, slot locking, confirmation, and scheduling logic | Abhay Kumar / Sneha Viradiya | **Implemented (Frontend UI + Concurrency-Safe API)** |
 | **Student Dashboard** | Central student portal for bookings, past sessions, and activity | Jiya Srivastava | **Planned** |
 | **Chat & Messaging** | Text chat for session preparation and follow-ups | Team | **Planned** |
 | **Video Meetings** | Virtual meeting integration for one-on-one sessions | Jiya Srivastava / Team | **Planned** |
-| **Authentication & Profiles** | User registration, role-based access (Student / Mentor) | Sneha Viradiya | **Planned** |
+| **Authentication & Profiles** | User registration, role-based access (Student / Mentor), JWT security | Sneha Viradiya | **Implemented (Backend Auth & JWT)** |
 
 ---
 
@@ -53,7 +53,7 @@ Undergraduate students frequently face challenges finding timely, personalized a
 - **Frontend:** [React](https://react.dev/) with [Vite](https://vitejs.dev/)
 - **Backend:** [Node.js](https://nodejs.org/) & [Express.js](https://expressjs.com/)
 - **Styling & UI:** Modern Vanilla CSS / Component Styling
-- **Database & Data Layer:** Relational/Document Database (to be finalized during Milestone 2)
+- **Database & Data Layer:** Relational Database via [Prisma ORM](https://www.prisma.io/) (SQLite local, PostgreSQL production)
 - **Version Control:** Git & GitHub
 
 ---
@@ -72,18 +72,19 @@ Undergraduate students frequently face challenges finding timely, personalized a
 
 ## 6. Development Roadmap
 
-- [x] **Milestone 1 — Initial Setup & Documentation *(Current)***
+- [x] **Milestone 1 — Initial Setup & Documentation**
   - Repository initialization and branch structure setup
   - Project documentation (`README.md`) and repository hygiene (`.gitignore`)
   - Team alignment and responsibility proposal
-- [ ] **Milestone 2 — System Architecture & Scaffolding**
-  - Database schema definition and backend skeleton setup
+- [x] **Milestone 2 — System Architecture & Scaffolding**
+  - Database schema definition (Prisma ORM relational models)
   - Vite + React frontend scaffolding and base design system
-  - Environment configuration and API contracts
-- [ ] **Milestone 3 — Core Feature Implementation**
-  - Mentor profiles, availability management, and booking engine
-  - Student dashboard and session management
-  - RESTful API endpoints and data validation
+  - Environment configuration (`.env.example`) and API contracts (`docs/API.md`)
+- [x] **Milestone 3 — Core Feature Implementation (Sprint 1 Backend)**
+  - Mentor profiles, availability management, and concurrency-safe booking engine
+  - User authentication (JWT, bcrypt, role-based authorization)
+  - RESTful API endpoints and robust request validation
+  - Comprehensive automated test suites (38 backend tests, 27 frontend tests)
 - [ ] **Milestone 4 — Communication & Meeting Experience**
   - Chat implementation and video meeting integration
   - Notifications and session reminders
