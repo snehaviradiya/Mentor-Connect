@@ -1,0 +1,97 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String          @id @default(uuid())
+  email         String          @unique
+  password      String
+  name          String
+  role          String          @default("STUDENT") // STUDENT, MENTOR, ADMIN
+  avatar        String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  mentorProfile MentorProfile?
+  menteeProfile MenteeProfile?
+
+  @@map("users")
+}
+
+model MentorProfile {
+  id                 String               @id // Matches canonical IDs like "mentor-1" or UUIDs
+  userId             String               @unique
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title              String
+  category           String               // e.g. "Software Engineering", "Data Science & AI"
+  expertise          String               // Stored as JSON string array: ["React", "TypeScript"]
+  bio                String
+  sampleAvailability String?              // User-facing display summary string
+  avatarInitials     String
+  education          String?
+  experience         String?
+  mentoringTopics    String?              // Stored as JSON string array
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  availabilities     MentorAvailability[]
+  bookings           Booking[]
+
+  @@map("mentor_profiles")
+}
+
+model MenteeProfile {
+  id             String    @id @default(uuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  university     String?   @default("ADYPU")
+  major          String?
+  graduationYear Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  bookings       Booking[]
+
+  @@map("mentee_profiles")
+}
+
+model MentorAvailability {
+  id           String        @id @default(uuid())
+  mentorId     String
+  mentor       MentorProfile @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+  slotLabel    String        // e.g. "10:00 AM – 11:00 AM IST"
+  dayOfWeek    Int?          // 0 = Sunday, 1 = Monday, ... 6 = Saturday
+  specificDate String?       // Optional YYYY-MM-DD
+  isBookable   Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([mentorId])
+  @@map("mentor_availabilities")
+}
+
+model Booking {
+  id           String         @id // e.g. "bk_11223344"
+  mentorId     String
+  mentor       MentorProfile  @relation(fields: [mentorId], references: [id], onDelete: Restrict)
+  menteeId     String?
+  mentee       MenteeProfile? @relation(fields: [menteeId], references: [id], onDelete: SetNull)
+  studentName  String
+  studentEmail String
+  sessionDate  String         // YYYY-MM-DD
+  timeSlot     String         // e.g. "10:00 AM – 11:00 AM IST"
+  sessionTopic String         // Max 150 characters
+  notes        String?        // Max 500 characters
+  status       String         @default("confirmed") // "confirmed", "cancelled", "completed"
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([mentorId, sessionDate])
+  @@index([studentEmail])
+  @@map("bookings")
+}
