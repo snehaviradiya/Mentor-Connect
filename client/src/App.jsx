@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import './App.css';
 import { MOCK_MENTORS, MOCK_CATEGORIES } from './data/mockMentors.js';
 import Navbar from './components/Navbar.jsx';
@@ -7,12 +7,14 @@ import CategoryFilter from './components/CategoryFilter.jsx';
 import MentorCard from './components/MentorCard.jsx';
 import MentorProfile from './components/MentorProfile.jsx';
 import EmptyState from './components/EmptyState.jsx';
+import ProjectOverview from './components/ProjectOverview.jsx';
 
 function App() {
   const [activeTab, setActiveTab] = useState('discover');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedMentorId, setSelectedMentorId] = useState(null);
+  const listingsRef = useRef(null);
 
   // Filter mentors based on search query and selected category
   const filteredMentors = useMemo(() => {
@@ -59,6 +61,10 @@ function App() {
     }
   };
 
+  const scrollToMentors = () => {
+    listingsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <div className="app-container">
       {/* Header and Navigation */}
@@ -77,18 +83,25 @@ function App() {
             <section className="discovery-section" aria-labelledby="discovery-heading">
               {/* Header intro */}
               <div className="discovery-hero">
-                <span className="discovery-badge">Mentor Discovery</span>
+                <span className="discovery-badge">Your growth, guided by experts</span>
                 <h1 id="discovery-heading" className="discovery-title">
-                  Find Academic &amp; Industry Mentors
+                  Learn from people who&apos;ve already been there.
                 </h1>
                 <p className="discovery-subtitle">
-                  Explore guidance across engineering, design, AI, and career development.
-                  Search by name or technical expertise to find the right mentor for your capstone project.
+                  Connect with experienced professionals and academic mentors who can help
+                  you turn your ambitions into achievements.
                 </p>
+                <button
+                  type="button"
+                  className="hero-cta"
+                  onClick={scrollToMentors}
+                >
+                  Explore Mentors
+                </button>
               </div>
 
               {/* Search and Filters Control Panel */}
-              <div className="discovery-controls">
+              <div className="discovery-controls" ref={listingsRef} id="mentor-listings">
                 <SearchBar
                   searchQuery={searchQuery}
                   onSearchChange={setSearchQuery}
@@ -155,7 +168,7 @@ function App() {
 
               {/* Demonstration Notice */}
               <aside className="demo-disclaimer" aria-label="Demo Disclaimer">
-                <span className="disclaimer-icon" aria-hidden="true">ℹ️</span>
+                <span className="disclaimer-icon" aria-hidden="true">i</span>
                 <p>
                   <strong>Demonstration Fixtures:</strong> Mentors and availability displayed
                   above are sample records for Milestone 3A &amp; 3B frontend testing. Live mentor
@@ -165,52 +178,7 @@ function App() {
             </section>
           )
         ) : (
-          /* Preserved Project Overview from Milestone 2A */
-          <section className="overview-section" aria-labelledby="overview-heading">
-            <div className="hero-section">
-              <div className="hero-badge">About Mentor Connect</div>
-              <h1 id="overview-heading" className="hero-title">
-                Empowering Students Through Meaningful Mentorship
-              </h1>
-              <p className="hero-subtitle">
-                A centralized platform bridging ADYPU students with experienced mentors.
-                Discover academic guidance, career insights, and scheduled 1-on-1 mentorship.
-              </p>
-            </div>
-
-            <div className="pillars-section">
-              <h2 className="section-title">Platform Architecture &amp; Roadmap</h2>
-              <div className="pillars-grid">
-                <div className="pillar-card">
-                  <div className="pillar-icon">🎯</div>
-                  <h3>Mentor Discovery</h3>
-                  <p>Filter mentors by department, skills, and topics.</p>
-                  <span className="pillar-tag in-progress">Milestone 3A • Active</span>
-                </div>
-
-                <div className="pillar-card">
-                  <div className="pillar-icon">👤</div>
-                  <h3>Profile Details</h3>
-                  <p>Detailed view of mentor bio, credentials, expertise, and schedule preview.</p>
-                  <span className="pillar-tag in-progress">Milestone 3B • Active</span>
-                </div>
-
-                <div className="pillar-card">
-                  <div className="pillar-icon">📅</div>
-                  <h3>Appointment Booking</h3>
-                  <p>View real-time availability calendars and schedule structured sessions.</p>
-                  <span className="pillar-tag">Planned • Milestone 3C</span>
-                </div>
-
-                <div className="pillar-card">
-                  <div className="pillar-icon">💬</div>
-                  <h3>Collaborative Meetings</h3>
-                  <p>Engage via direct messaging and integrated virtual video calls.</p>
-                  <span className="pillar-tag">Planned • Milestone 4</span>
-                </div>
-              </div>
-            </div>
-          </section>
+          <ProjectOverview />
         )}
       </main>
 

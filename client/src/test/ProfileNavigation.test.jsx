@@ -30,7 +30,7 @@ describe('Profile Navigation', () => {
     fireEvent.click(backBtn);
 
     // Discovery hero and directory should be back
-    expect(screen.getByRole('heading', { name: /Find Academic & Industry Mentors/i, level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Learn from people who've already been there/i, level: 1 })).toBeInTheDocument();
     expect(container.querySelector('.results-count')).toHaveTextContent('Showing 8 of 8 mentors');
   });
 
