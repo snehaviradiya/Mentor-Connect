@@ -59,14 +59,20 @@ export default function MentorProfile({ mentor, onBack }) {
 
       {/* Profile Header Hero */}
       <header className="profile-header-card">
-        <div className="profile-avatar-large" aria-hidden="true">
+        <div
+          className="profile-avatar-large"
+          aria-hidden="true"
+          data-domain={mentor.category}
+        >
           {mentor.avatarInitials}
         </div>
         <div className="profile-header-info">
           <div className="profile-badges-row">
-            <span className="mentor-category-badge">{mentor.category}</span>
+            <span className="mentor-category-badge" data-domain={mentor.category}>
+              {mentor.category}
+            </span>
             {mentor.experience && (
-              <span className="experience-badge">{mentor.experience}</span>
+              <span className="experience-badge">⏱ {mentor.experience}</span>
             )}
           </div>
           <h1 id="profile-heading" className="profile-name">
@@ -130,7 +136,12 @@ export default function MentorProfile({ mentor, onBack }) {
         <aside className="profile-sidebar-col" aria-label="Availability and scheduling information">
           <div className="profile-availability-card">
             <div className="sidebar-card-header">
-              <span className="calendar-icon" aria-hidden="true">📅</span>
+              <span className="calendar-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8" />
+                  <path d="M8 3v4M16 3v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              </span>
               <h2 className="sidebar-card-title">Sample Availability</h2>
             </div>
 
@@ -140,7 +151,7 @@ export default function MentorProfile({ mentor, onBack }) {
               <div className="notice-content">
                 <strong>Demonstration Schedule:</strong>
                 <p>
-                  Availability slots shown below are demonstration fixtures for Milestone 3B &amp; 3C. Live booking workflows and database persistence will be connected in future milestones.
+                  Availability slots shown are demonstration fixtures for Milestone 3B &amp; 3C. Live booking workflows and database persistence will be connected in future milestones.
                 </p>
                 <span className="mock-disclaimer-pill status-pill">Demo Simulation Mode</span>
               </div>
@@ -159,6 +170,7 @@ export default function MentorProfile({ mentor, onBack }) {
               onClick={() => setIsBookingModalOpen(true)}
               aria-haspopup="dialog"
               aria-expanded={isBookingModalOpen}
+              id="book-session-btn"
             >
               Request a Demo Session
             </button>

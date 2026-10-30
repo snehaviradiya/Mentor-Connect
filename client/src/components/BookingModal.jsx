@@ -561,10 +561,17 @@ export default function BookingModal({ mentor, onClose }) {
               </button>
               <button
                 type="submit"
-                className="btn-primary"
+                className="btn-primary btn-primary-with-icon"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Submitting...' : 'Submit Booking Request'}
+                {isSubmitting ? (
+                  <>
+                    <span className="btn-spinner" aria-hidden="true" />
+                    Submitting...
+                  </>
+                ) : (
+                  'Submit Booking Request'
+                )}
               </button>
             </div>
           </form>
