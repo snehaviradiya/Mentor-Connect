@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { DEMO_TIME_SLOTS } from '../data/mockMentors.js';
 import { createBooking } from '../services/api.js';
+import { useToast } from '../context/ToastContext.jsx';
 
 // Deterministic helper to get today's date formatted as YYYY-MM-DD
 function getTodayDateString() {
@@ -14,6 +15,7 @@ function getTodayDateString() {
 export default function BookingModal({ mentor, onClose }) {
   const modalRef = useRef(null);
   const firstInputRef = useRef(null);
+  const toast = useToast();
 
   // Form field states
   const [studentName, setStudentName] = useState('');
@@ -125,6 +127,7 @@ export default function BookingModal({ mentor, onClose }) {
     if (isSubmitting) return;
 
     if (!validateForm()) {
+      toast.error('Please fill in all required booking details.', 'Validation Error');
       return;
     }
 
@@ -149,34 +152,45 @@ export default function BookingModal({ mentor, onClose }) {
       if (response && response.status === 'success' && response.data) {
         setSubmittedData(response.data);
         setSubmissionResult('success');
+        toast.success(
+          `Demo session booked with ${mentor.name} for ${sessionDate} at ${timeSlotLabel}!`,
+          'Session Confirmed'
+        );
       } else {
         throw new Error('Unexpected server response format');
       }
     } catch (err) {
       if (err.status === 409 || err.code === 'SLOT_UNAVAILABLE') {
-        setConflictMessage(
-          err.message || 'The selected time slot is already booked for this mentor.'
-        );
+        const conflictMsg =
+          err.message || 'The selected time slot is already booked for this mentor.';
+        setConflictMessage(conflictMsg);
         setSubmittedData({
           timeSlot: timeSlotLabel,
           sessionDate,
           mentorName: mentor.name,
         });
         setSubmissionResult('conflict');
+        toast.error(conflictMsg, 'Time Slot Unavailable');
       } else if (err.status === 400) {
         const detailsMsg =
           Array.isArray(err.details) && err.details.length > 0
             ? err.details.join('. ')
             : err.message || 'Invalid booking parameters provided.';
         setServerError(detailsMsg);
+        toast.error(detailsMsg, 'Booking Failed');
       } else if (err.status === 404) {
-        setServerError(err.message || 'Mentor not found on server.');
+        const notFoundMsg = err.message || 'Mentor not found on server.';
+        setServerError(notFoundMsg);
+        toast.error(notFoundMsg, 'Mentor Not Found');
       } else if (err.code === 'NETWORK_ERROR') {
-        setServerError(
-          err.message || 'Unable to connect to the server. Please check your network connection.'
-        );
+        const netMsg =
+          err.message || 'Unable to connect to the server. Please check your network connection.';
+        setServerError(netMsg);
+        toast.error(netMsg, 'Network Error');
       } else {
-        setServerError(err.message || 'A server error occurred. Please try again later.');
+        const genericMsg = err.message || 'A server error occurred. Please try again later.';
+        setServerError(genericMsg);
+        toast.error(genericMsg, 'Booking Error');
       }
     } finally {
       setIsSubmitting(false);

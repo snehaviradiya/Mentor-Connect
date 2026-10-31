@@ -8,7 +8,7 @@ export default function EmptyState({ searchQuery, selectedCategory, onReset }) {
           <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
         </svg>
       </div>
-      <h3 className="empty-title">No mentors found</h3>
+      <h3 className="empty-title">No matching mentors found</h3>
       <p className="empty-description">
         We couldn&apos;t find any mentors matching{' '}
         {searchQuery ? <strong className="query-highlight">&ldquo;{searchQuery}&rdquo;</strong> : ''}

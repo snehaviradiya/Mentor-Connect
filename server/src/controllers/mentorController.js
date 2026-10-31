@@ -250,3 +250,83 @@ export async function updateMentorAvailability(req, res, next) {
     next(err);
   }
 }
+
+/**
+ * Update mentor profile attributes (bio, title, expertise, availability, etc.).
+ */
+export async function updateMentorProfile(req, res, next) {
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      bio,
+      category,
+      expertise,
+      sampleAvailability,
+      education,
+      experience,
+      mentoringTopics,
+    } = req.body;
+
+    const mentor = await prisma.mentorProfile.findUnique({
+      where: { id },
+      include: {
+        user: true,
+      },
+    });
+
+    if (!mentor) {
+      return next(
+        new AppError(`Mentor with ID ${id} does not exist`, 404, 'MENTOR_NOT_FOUND')
+      );
+    }
+
+    if (req.user && req.user.role === 'MENTOR' && mentor.userId !== req.user.id) {
+      return next(
+        new AppError('You can only update your own profile.', 403, 'FORBIDDEN')
+      );
+    }
+
+    const dataToUpdate = {};
+    if (title !== undefined) dataToUpdate.title = title;
+    if (bio !== undefined) dataToUpdate.bio = bio;
+    if (category !== undefined) dataToUpdate.category = category;
+    if (expertise !== undefined) {
+      dataToUpdate.expertise = typeof expertise === 'string' ? expertise : JSON.stringify(expertise);
+    }
+    if (sampleAvailability !== undefined) dataToUpdate.sampleAvailability = sampleAvailability;
+    if (education !== undefined) dataToUpdate.education = education;
+    if (experience !== undefined) dataToUpdate.experience = experience;
+    if (mentoringTopics !== undefined) {
+      dataToUpdate.mentoringTopics =
+        typeof mentoringTopics === 'string' ? mentoringTopics : JSON.stringify(mentoringTopics);
+    }
+
+    const updated = await prisma.mentorProfile.update({
+      where: { id },
+      data: dataToUpdate,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+          },
+        },
+        availabilities: true,
+      },
+    });
+
+    const formatted = formatMentorRecord(updated);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        mentor: formatted,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}

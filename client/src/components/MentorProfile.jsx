@@ -1,9 +1,14 @@
 import { useState, useRef } from 'react';
 import BookingModal from './BookingModal.jsx';
+import EditProfileModal from './EditProfileModal.jsx';
+import { useToast } from '../context/ToastContext.jsx';
 
-export default function MentorProfile({ mentor, onBack }) {
+export default function MentorProfile({ mentor, onBack, onUpdateMentor }) {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [justUpdated, setJustUpdated] = useState(false);
   const bookingButtonRef = useRef(null);
+  const toast = useToast();
 
   // Graceful fallback for invalid or missing mentor
   if (!mentor) {
@@ -35,6 +40,21 @@ export default function MentorProfile({ mentor, onBack }) {
     }, 10);
   };
 
+  const handleShareProfile = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+      }
+      toast.success(
+        `Link to ${mentor.name}'s profile has been copied to your clipboard.`,
+        'Link Copied'
+      );
+    } catch {
+      toast.info(`Share link for ${mentor.name}: ${url}`, 'Mentor Link');
+    }
+  };
+
   return (
     <article className="mentor-profile-view" aria-labelledby="profile-heading">
       {/* Top Navigation & Breadcrumb */}
@@ -55,7 +75,37 @@ export default function MentorProfile({ mentor, onBack }) {
           <span className="crumb-sep" aria-hidden="true">/</span>
           <span className="current-crumb" aria-current="page">{mentor.name}</span>
         </nav>
+
+        {/* Action controls */}
+        <div className="profile-quick-actions">
+          <button
+            type="button"
+            className="action-pill-btn share-btn"
+            onClick={handleShareProfile}
+            aria-label="Share mentor profile"
+          >
+            <span aria-hidden="true">🔗</span> Share
+          </button>
+          <button
+            type="button"
+            className="action-pill-btn edit-btn"
+            onClick={() => setIsEditModalOpen(true)}
+            aria-label={`Edit profile of ${mentor.name}`}
+            id="edit-profile-btn"
+          >
+            <span aria-hidden="true">✏️</span> Edit Profile
+          </button>
+        </div>
       </div>
+
+      {justUpdated && (
+        <div className="profile-updated-banner" role="status" aria-live="polite">
+          <span className="banner-icon" aria-hidden="true">✓</span>
+          <div>
+            <strong>Profile Updated:</strong> Changes to {mentor.name}&apos;s profile have been saved and applied.
+          </div>
+        </div>
+      )}
 
       {/* Profile Header Hero */}
       <header className="profile-header-card">
@@ -202,6 +252,20 @@ export default function MentorProfile({ mentor, onBack }) {
         <BookingModal
           mentor={mentor}
           onClose={handleCloseBookingModal}
+        />
+      )}
+
+      {/* Interactive Edit Profile Modal */}
+      {isEditModalOpen && (
+        <EditProfileModal
+          mentor={mentor}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={(updated) => {
+            setJustUpdated(true);
+            if (onUpdateMentor) {
+              onUpdateMentor(updated);
+            }
+          }}
         />
       )}
     </article>
