@@ -5,6 +5,7 @@ import authRoutes from './routes/authRoutes.js';
 import mentorRoutes from './routes/mentorRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import dashboardRoutes from './routes/dashboardRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -22,10 +23,14 @@ app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps, curl, server-to-server)
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin) {
         return callback(null, true);
       }
-      return callback(null, true); // Permissive in local development
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      // Reject disallowed origins
+      return callback(new Error('Not allowed by CORS'), false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -50,6 +55,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/mentors', mentorRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Catch-all 404 route for undefined endpoints
 app.use((req, res) => {

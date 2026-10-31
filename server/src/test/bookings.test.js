@@ -1,11 +1,25 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import app from '../app.js';
 import prisma from '../prisma.js';
 
 describe('Bookings and Scheduling Engine', () => {
-  let createdBookingId = '';
+  let studentToken = '';
+let createdBookingId = '';
   const testStudentEmail = 'student.booking.test@adypu.edu.in';
+  beforeAll(async () => {
+    // Register a student and obtain token for authenticated requests
+    const email = `test.student.auth.${Date.now()}@adypu.edu.in`;
+    const password = 'SecurePassword123!';
+    await request(app).post('/api/auth/register').send({
+      name: 'Auth Student',
+      email,
+      password,
+      role: 'STUDENT',
+    });
+    const loginRes = await request(app).post('/api/auth/login').send({ email, password });
+    studentToken = loginRes.body.data.token;
+  });
 
   afterAll(async () => {
     // Clean up test bookings

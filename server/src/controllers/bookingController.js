@@ -116,29 +116,75 @@ export async function listBookings(req, res, next) {
     const { studentEmail, mentorId, status } = req.query;
     const filter = {};
 
-    // Filter by student email
-    if (studentEmail) {
-      filter.studentEmail = studentEmail.toLowerCase();
+    // Role‑based filtering logic
+    if (!req.user) {
+      // Allow unauthenticated public access only when explicit filter is provided
+      if (studentEmail) {
+        filter.studentEmail = studentEmail.toLowerCase();
+      } else if (mentorId) {
+        filter.mentorId = mentorId;
+      } else {
+        return next(new AppError('Authentication required to list bookings.', 401, 'UNAUTHORIZED'));
+      }
+      // Unauthenticated: fetch and return filtered bookings directly
+      const bookings = await prisma.booking.findMany({
+        where: filter,
+        include: {
+          mentor: { include: { user: { select: { name: true, email: true } } } },
+        },
+        orderBy: { sessionDate: 'desc' },
+      });
+
+      const formatted = bookings.map((b) => ({
+        bookingId: b.id,
+        id: b.id,
+        mentorId: b.mentorId,
+        mentorName: b.mentor?.user?.name || 'Mentor',
+        studentName: b.studentName,
+        // No auth, include student email as it's public query
+        studentEmail: b.studentEmail,
+        sessionDate: b.sessionDate,
+        timeSlot: b.timeSlot,
+        sessionTopic: b.sessionTopic,
+        notes: b.notes,
+        status: b.status,
+        createdAt: b.createdAt,
+      }));
+
+      return res.status(200).json({
+        status: 'success',
+        data: { bookings: formatted, total: formatted.length },
+      });
     }
 
-    // Filter by mentor ID
-    if (mentorId) {
-      filter.mentorId = mentorId;
+    const isAdmin = req.user.role === 'ADMIN';
+    const isStudent = req.user.role === 'STUDENT';
+    const isMentor = req.user.role === 'MENTOR';
+
+    // Student can only view their own bookings
+    if (isStudent) {
+      if (studentEmail && studentEmail.toLowerCase() !== req.user.email.toLowerCase()) {
+        return next(new AppError('Students may only view their own bookings.', 403, 'FORBIDDEN'));
+      }
+      filter.studentEmail = req.user.email.toLowerCase();
     }
 
-    // Filter by status
+    // Mentor can only view bookings assigned to them
+    if (isMentor) {
+      if (mentorId && mentorId !== req.user.mentorProfile?.id) {
+        return next(new AppError('Mentors may only view their own bookings.', 403, 'FORBIDDEN'));
+      }
+      filter.mentorId = req.user.mentorProfile?.id;
+    }
+
+    // Admin can use any filters; otherwise ignore unsupported params
+    if (isAdmin) {
+      if (studentEmail) filter.studentEmail = studentEmail.toLowerCase();
+      if (mentorId) filter.mentorId = mentorId;
+    }
+
     if (status) {
       filter.status = status;
-    }
-
-    // If user is authenticated as STUDENT without query params, scope to their bookings
-    if (req.user && req.user.role === 'STUDENT' && !studentEmail) {
-      filter.studentEmail = req.user.email;
-    }
-
-    // If user is authenticated as MENTOR without query params, scope to their mentor bookings
-    if (req.user && req.user.role === 'MENTOR' && req.user.mentorProfile && !mentorId) {
-      filter.mentorId = req.user.mentorProfile.id;
     }
 
     const bookings = await prisma.booking.findMany({
@@ -146,9 +192,7 @@ export async function listBookings(req, res, next) {
       include: {
         mentor: {
           include: {
-            user: {
-              select: { name: true, email: true },
-            },
+            user: { select: { name: true, email: true } },
           },
         },
       },
@@ -161,7 +205,10 @@ export async function listBookings(req, res, next) {
       mentorId: b.mentorId,
       mentorName: b.mentor?.user?.name || 'Mentor',
       studentName: b.studentName,
-      studentEmail: b.studentEmail,
+      // Expose studentEmail only to the owner or admin
+      studentEmail: (req.user && (req.user.role === 'ADMIN' || (req.user.email && req.user.email.toLowerCase() === b.studentEmail.toLowerCase())))
+        ? b.studentEmail
+        : undefined,
       sessionDate: b.sessionDate,
       timeSlot: b.timeSlot,
       sessionTopic: b.sessionTopic,
@@ -208,26 +255,43 @@ export async function getBookingById(req, res, next) {
       );
     }
 
+    // Authorization: owner (student), mentor, or admin can view; unauthenticated allowed (hide email)
+    let includeStudentEmail = false;
+    if (req.user) {
+      const isStudentOwner = req.user.email && req.user.email.toLowerCase() === booking.studentEmail.toLowerCase();
+      const isMentorOwner = req.user.mentorProfile && req.user.mentorProfile.id === booking.mentorId;
+      const isAdmin = req.user.role === 'ADMIN';
+      if (!isStudentOwner && !isMentorOwner && !isAdmin) {
+        return next(new AppError('You do not have permission to view this booking.', 403, 'FORBIDDEN'));
+      }
+      includeStudentEmail = isStudentOwner;
+    }
+    // Prepare response, hide studentEmail unless includeStudentEmail is true
+    const response = {
+      bookingId: booking.id,
+      mentorId: booking.mentorId,
+      mentorName: booking.mentor?.user?.name || 'Mentor',
+      studentName: booking.studentName,
+      sessionDate: booking.sessionDate,
+      timeSlot: booking.timeSlot,
+      sessionTopic: booking.sessionTopic,
+      notes: booking.notes,
+      status: booking.status,
+      createdAt: booking.createdAt,
+    };
+    if (includeStudentEmail) {
+      response.studentEmail = booking.studentEmail;
+    }
+
     res.status(200).json({
       status: 'success',
-      data: {
-        bookingId: booking.id,
-        mentorId: booking.mentorId,
-        mentorName: booking.mentor?.user?.name || 'Mentor',
-        studentName: booking.studentName,
-        studentEmail: booking.studentEmail,
-        sessionDate: booking.sessionDate,
-        timeSlot: booking.timeSlot,
-        sessionTopic: booking.sessionTopic,
-        notes: booking.notes,
-        status: booking.status,
-        createdAt: booking.createdAt,
-      },
+      data: response,
     });
   } catch (err) {
     next(err);
   }
 }
+
 
 /**
  * Cancel a booked session and release its time slot.
