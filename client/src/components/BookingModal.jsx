@@ -152,7 +152,7 @@ export default function BookingModal({ mentor, onClose }) {
       if (response && response.status === 'success' && response.data) {
         setSubmittedData(response.data);
         setSubmissionResult('success');
-        toast.success(
+        toast.bookingApproved(
           `Demo session booked with ${mentor.name} for ${sessionDate} at ${timeSlotLabel}!`,
           'Session Confirmed'
         );
