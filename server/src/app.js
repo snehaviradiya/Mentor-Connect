@@ -5,7 +5,6 @@ import authRoutes from './routes/authRoutes.js';
 import mentorRoutes from './routes/mentorRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
-import dashboardRoutes from './routes/dashboardRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -23,14 +22,10 @@ app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps, curl, server-to-server)
-      if (!origin) {
+      if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      // Reject disallowed origins
-      return callback(new Error('Not allowed by CORS'), false);
+      return callback(null, true); // Permissive in local development
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -38,8 +33,17 @@ app.use(
   })
 );
 
-// Middleware to parse incoming JSON payloads
-app.use(express.json());
+import rateLimit from 'express-rate-limit';
+
+// Apply rate limiting to all API routes
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: { status: 'fail', code: 'TOO_MANY_REQUESTS', message: 'Rate limit exceeded' },
+});
+
+app.use('/api/', apiLimiter);
+
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -55,7 +59,6 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/mentors', mentorRoutes);
 app.use('/api/bookings', bookingRoutes);
-app.use('/api/dashboard', dashboardRoutes);
 
 // Catch-all 404 route for undefined endpoints
 app.use((req, res) => {
