@@ -5,6 +5,7 @@ const ToastContext = createContext(null);
 let toastIdCounter = 0;
 
 export function ToastProvider({ children }) {
+  // State & core toast functions ------------------------------------------------
   const [toasts, setToasts] = useState([]);
 
   const dismissToast = useCallback((id) => {
@@ -15,7 +16,6 @@ export function ToastProvider({ children }) {
     ({ type = 'info', title = '', message = '', duration = 4500 }) => {
       const id = ++toastIdCounter;
       const newToast = { id, type, title, message, duration };
-
       setToasts((prev) => [...prev, newToast]);
 
       if (duration > 0) {
@@ -29,6 +29,28 @@ export function ToastProvider({ children }) {
     [dismissToast]
   );
 
+  // Domain‑specific helpers ------------------------------------------------------
+  const bookingApproved = useCallback((message, title = 'Booking Approved') =>
+    showToast({ type: 'success', title, message })
+  , [showToast]);
+
+  const upcomingSession = useCallback((message, title = 'Upcoming Session') =>
+    showToast({ type: 'info', title, message })
+  , [showToast]);
+
+  const newMessage = useCallback((message, title = 'New Message') =>
+    showToast({ type: 'info', title, message })
+  , [showToast]);
+
+  const bookingCancelled = useCallback((message, title = 'Booking Cancelled') =>
+    showToast({ type: 'warning', title, message })
+  , [showToast]);
+
+  const mentorResponse = useCallback((message, title = 'Mentor Response') =>
+    showToast({ type: 'info', title, message })
+  , [showToast]);
+
+  // Consolidated helpers object ---------------------------------------------------
   const helpers = useMemo(
     () => ({
       showToast,
@@ -41,8 +63,14 @@ export function ToastProvider({ children }) {
         showToast({ type: 'info', title, message }),
       warning: (message, title = 'Warning') =>
         showToast({ type: 'warning', title, message }),
+      // Specific notifications
+      bookingApproved,
+      upcomingSession,
+      newMessage,
+      bookingCancelled,
+      mentorResponse,
     }),
-    [showToast, dismissToast]
+    [showToast, dismissToast, bookingApproved, upcomingSession, newMessage, bookingCancelled, mentorResponse]
   );
 
   return (
@@ -90,7 +118,7 @@ export function ToastProvider({ children }) {
 export function useToast() {
   const context = useContext(ToastContext);
   if (!context) {
-    // Graceful no-op fallback for tests or components rendered outside provider
+    // Graceful no‑op fallback for tests or components rendered outside provider
     return {
       showToast: () => {},
       dismissToast: () => {},
@@ -98,8 +126,12 @@ export function useToast() {
       error: () => {},
       info: () => {},
       warning: () => {},
+      bookingApproved: () => {},
+      upcomingSession: () => {},
+      newMessage: () => {},
+      bookingCancelled: () => {},
+      mentorResponse: () => {},
     };
   }
   return context;
 }
-
