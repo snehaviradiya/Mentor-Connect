@@ -1,11 +1,26 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import app from '../app.js';
 import prisma from '../prisma.js';
+import { generateToken } from '../middleware/auth.js';
 
 describe('Bookings and Scheduling Engine', () => {
   let createdBookingId = '';
   const testStudentEmail = 'student.booking.test@adypu.edu.in';
+  let studentToken = '';
+
+  beforeAll(async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: testStudentEmail,
+        password: 'not-a-real-password',
+        name: 'Sneha Viradiya',
+        role: 'STUDENT',
+        menteeProfile: { create: {} },
+      },
+    });
+    studentToken = generateToken(user);
+  });
 
   afterAll(async () => {
     // Clean up test bookings
@@ -14,21 +29,25 @@ describe('Bookings and Scheduling Engine', () => {
         studentEmail: testStudentEmail,
       },
     });
+    await prisma.user.deleteMany({ where: { email: testStudentEmail } });
   });
 
   describe('POST /api/bookings - Creation and Validation', () => {
     it('creates a new booking matching frontend response contract exactly', async () => {
       const payload = {
         mentorId: 'mentor-1',
-        studentName: 'Sneha Viradiya',
-        studentEmail: testStudentEmail,
+        studentName: 'Client supplied name',
+        studentEmail: 'client.supplied@adypu.edu.in',
         sessionDate: '2026-11-15',
         timeSlot: '10:00 AM – 11:00 AM IST',
         sessionTopic: 'Backend Architecture & Database Review',
         notes: 'Discussion on PostgreSQL and Prisma relational modeling',
       };
 
-      const res = await request(app).post('/api/bookings').send(payload);
+      const res = await request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send(payload);
 
       expect(res.status).toBe(201);
       expect(res.body.status).toBe('success');
@@ -37,16 +56,19 @@ describe('Bookings and Scheduling Engine', () => {
       expect(res.body.data.bookingId.startsWith('bk_')).toBe(true);
       expect(res.body.data.mentorId).toBe('mentor-1');
       expect(res.body.data.mentorName).toBe('Aarav Sharma');
-      expect(res.body.data.studentName).toBe('Sneha Viradiya');
-      expect(res.body.data.studentEmail).toBe(testStudentEmail);
+      expect(res.body.data.studentName).toBeUndefined();
+      expect(res.body.data.studentEmail).toBeUndefined();
       expect(res.body.data.sessionDate).toBe('2026-11-15');
       expect(res.body.data.timeSlot).toBe('10:00 AM – 11:00 AM IST');
-      expect(res.body.data.sessionTopic).toBe('Backend Architecture & Database Review');
-      expect(res.body.data.notes).toBe('Discussion on PostgreSQL and Prisma relational modeling');
+      expect(res.body.data.sessionTopic).toBeUndefined();
+      expect(res.body.data.notes).toBeUndefined();
       expect(res.body.data.status).toBe('confirmed');
       expect(res.body.data.createdAt).toBeDefined();
 
       createdBookingId = res.body.data.bookingId;
+      const storedBooking = await prisma.booking.findUnique({ where: { id: createdBookingId } });
+      expect(storedBooking.studentName).toBe('Sneha Viradiya');
+      expect(storedBooking.studentEmail).toBe(testStudentEmail);
     });
 
     it('rejects double-booking the same mentor, date, and slot with 409 SLOT_UNAVAILABLE', async () => {
@@ -59,7 +81,10 @@ describe('Bookings and Scheduling Engine', () => {
         sessionTopic: 'Duplicate Slot Test',
       };
 
-      const res = await request(app).post('/api/bookings').send(duplicatePayload);
+      const res = await request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send(duplicatePayload);
 
       expect(res.status).toBe(409);
       expect(res.body.status).toBe('fail');
@@ -67,7 +92,7 @@ describe('Bookings and Scheduling Engine', () => {
       expect(res.body.message).toContain('already booked for Aarav Sharma');
     });
 
-    it('rejects booking the pre-seeded conflict slot (slot-4 on 2026-11-01) with 409', async () => {
+    it('rejects a session date in the past before checking slot conflicts', async () => {
       const conflictPayload = {
         mentorId: 'mentor-1',
         studentName: 'Student Testing Conflict',
@@ -77,11 +102,14 @@ describe('Bookings and Scheduling Engine', () => {
         sessionTopic: 'Conflict Slot Check',
       };
 
-      const res = await request(app).post('/api/bookings').send(conflictPayload);
+      const res = await request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send(conflictPayload);
 
-      expect(res.status).toBe(409);
-      expect(res.body.code).toBe('SLOT_UNAVAILABLE');
-      expect(res.body.message).toContain('already booked for Aarav Sharma');
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.details).toContain('sessionDate cannot be in the past');
     });
 
     it('rejects booking with invalid/missing mentor ID with 404 MENTOR_NOT_FOUND', async () => {
@@ -94,7 +122,10 @@ describe('Bookings and Scheduling Engine', () => {
         sessionTopic: 'Test Missing Mentor',
       };
 
-      const res = await request(app).post('/api/bookings').send(payload);
+      const res = await request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send(payload);
 
       expect(res.status).toBe(404);
       expect(res.body.code).toBe('MENTOR_NOT_FOUND');
@@ -111,7 +142,10 @@ describe('Bookings and Scheduling Engine', () => {
         sessionTopic: 'Past Date Test',
       };
 
-      const res = await request(app).post('/api/bookings').send(pastPayload);
+      const res = await request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send(pastPayload);
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe('VALIDATION_ERROR');
@@ -128,7 +162,10 @@ describe('Bookings and Scheduling Engine', () => {
         sessionTopic: 'Invalid Email Test',
       };
 
-      const res = await request(app).post('/api/bookings').send(invalidEmailPayload);
+      const res = await request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send(invalidEmailPayload);
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe('VALIDATION_ERROR');
@@ -145,7 +182,10 @@ describe('Bookings and Scheduling Engine', () => {
         sessionTopic: 'A'.repeat(151),
       };
 
-      const res = await request(app).post('/api/bookings').send(longTopicPayload);
+      const res = await request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send(longTopicPayload);
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe('VALIDATION_ERROR');
@@ -155,7 +195,9 @@ describe('Bookings and Scheduling Engine', () => {
 
   describe('GET /api/bookings - Listing and Querying', () => {
     it('lists bookings filtered by studentEmail', async () => {
-      const res = await request(app).get(`/api/bookings?studentEmail=${testStudentEmail}`);
+      const res = await request(app)
+        .get(`/api/bookings?studentEmail=${testStudentEmail}`)
+        .set('Authorization', `Bearer ${studentToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('success');
@@ -164,7 +206,9 @@ describe('Bookings and Scheduling Engine', () => {
     });
 
     it('lists bookings filtered by mentorId', async () => {
-      const res = await request(app).get('/api/bookings?mentorId=mentor-1');
+      const res = await request(app)
+        .get('/api/bookings?mentorId=mentor-1')
+        .set('Authorization', `Bearer ${studentToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body.data.bookings.length).toBeGreaterThanOrEqual(1);
@@ -176,7 +220,9 @@ describe('Bookings and Scheduling Engine', () => {
 
   describe('GET /api/bookings/:id - Single Booking Lookup', () => {
     it('retrieves booking details for a valid bookingId', async () => {
-      const res = await request(app).get(`/api/bookings/${createdBookingId}`);
+      const res = await request(app)
+        .get(`/api/bookings/${createdBookingId}`)
+        .set('Authorization', `Bearer ${studentToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('success');
@@ -185,7 +231,9 @@ describe('Bookings and Scheduling Engine', () => {
     });
 
     it('returns 404 BOOKING_NOT_FOUND when bookingId does not exist', async () => {
-      const res = await request(app).get('/api/bookings/bk_nonexistent_999');
+      const res = await request(app)
+        .get('/api/bookings/bk_nonexistent_999')
+        .set('Authorization', `Bearer ${studentToken}`);
 
       expect(res.status).toBe(404);
       expect(res.body.status).toBe('fail');
@@ -195,7 +243,9 @@ describe('Bookings and Scheduling Engine', () => {
 
   describe('PATCH /api/bookings/:id/cancel and Re-booking Slot Release', () => {
     it('cancels an active booking and marks status as cancelled', async () => {
-      const res = await request(app).patch(`/api/bookings/${createdBookingId}/cancel`);
+      const res = await request(app)
+        .patch(`/api/bookings/${createdBookingId}/cancel`)
+        .set('Authorization', `Bearer ${studentToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('success');
@@ -214,7 +264,10 @@ describe('Bookings and Scheduling Engine', () => {
         sessionTopic: 'Booking Released Slot',
       };
 
-      const res = await request(app).post('/api/bookings').send(rebookPayload);
+      const res = await request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send(rebookPayload);
 
       expect(res.status).toBe(201);
       expect(res.body.status).toBe('success');
@@ -226,6 +279,7 @@ describe('Bookings and Scheduling Engine', () => {
     it('reschedules an existing booking to an open date and slot', async () => {
       const res = await request(app)
         .patch(`/api/bookings/${createdBookingId}/reschedule`)
+        .set('Authorization', `Bearer ${studentToken}`)
         .send({
           sessionDate: '2026-11-25',
           timeSlot: '02:00 PM – 03:00 PM IST',
@@ -237,12 +291,23 @@ describe('Bookings and Scheduling Engine', () => {
       expect(res.body.data.timeSlot).toBe('02:00 PM – 03:00 PM IST');
     });
 
+    it('rejects malformed reschedule dates with 400 VALIDATION_ERROR', async () => {
+      const res = await request(app)
+        .patch(`/api/bookings/${createdBookingId}/reschedule`)
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({ sessionDate: '2026-99-99', timeSlot: '02:00 PM – 03:00 PM IST' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+    });
+
     it('rejects rescheduling to a date and slot that is already booked', async () => {
       const res = await request(app)
         .patch(`/api/bookings/${createdBookingId}/reschedule`)
+        .set('Authorization', `Bearer ${studentToken}`)
         .send({
-          sessionDate: '2026-11-01',
-          timeSlot: '05:30 PM – 06:30 PM IST (Simulated Conflict Slot)',
+          sessionDate: '2026-11-15',
+          timeSlot: '10:00 AM – 11:00 AM IST',
         });
 
       expect(res.status).toBe(409);

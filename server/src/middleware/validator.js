@@ -97,7 +97,7 @@ export function validateRegistrationInput(req, res, next) {
     errors.push('Password is required and must be at least 6 characters.');
   }
 
-  const allowedRoles = ['STUDENT', 'MENTOR', 'ADMIN'];
+  const allowedRoles = ['STUDENT', 'MENTOR'];
   const userRole = role ? role.toUpperCase() : 'STUDENT';
   if (!allowedRoles.includes(userRole)) {
     errors.push(`Role must be one of: ${allowedRoles.join(', ')}.`);

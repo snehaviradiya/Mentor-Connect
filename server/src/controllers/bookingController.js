@@ -7,11 +7,42 @@ function generateBookingId() {
   return `bk_${timestamp}${randomPart}`;
 }
 
+function getBookingScope(user) {
+  if (user.role === 'ADMIN') return {};
+  if (user.role === 'STUDENT' && user.menteeProfile) {
+    return { menteeId: user.menteeProfile.id };
+  }
+  if (user.role === 'MENTOR' && user.mentorProfile) {
+    return { mentorId: user.mentorProfile.id };
+  }
+  throw new AppError('You do not have permission to access bookings.', 403, 'FORBIDDEN');
+}
+
+function bookingProjection(booking) {
+  return {
+    bookingId: booking.id,
+    id: booking.id,
+    mentorId: booking.mentorId,
+    mentorName: booking.mentor?.user?.name || 'Mentor',
+    studentName: booking.studentName,
+    studentEmail: booking.studentEmail,
+    sessionDate: booking.sessionDate,
+    timeSlot: booking.timeSlot,
+    sessionTopic: booking.sessionTopic,
+    notes: booking.notes,
+    status: booking.status,
+    createdAt: booking.createdAt,
+  };
+}
+
 /**
  * Create a new mentorship booking session with concurrency-safe conflict verification.
  */
 export async function createBooking(req, res, next) {
   try {
+    if (req.user && req.user.role !== 'STUDENT') {
+      throw new AppError('Only students can create bookings.', 403, 'FORBIDDEN');
+    }
     const { mentorId, studentName, studentEmail, sessionDate, timeSlot, sessionTopic, notes } = req.body;
 
     // 1. Verify mentor existence
@@ -37,16 +68,15 @@ export async function createBooking(req, res, next) {
 
     // 2. Identify linked mentee profile if available (via authenticated session or email lookup)
     let menteeId = null;
-    if (req.user?.menteeProfile?.id) {
-      menteeId = req.user.menteeProfile.id;
-    } else {
-      const existingMenteeUser = await prisma.user.findUnique({
-        where: { email: studentEmail },
-        include: { menteeProfile: true },
-      });
-      if (existingMenteeUser?.menteeProfile) {
-        menteeId = existingMenteeUser.menteeProfile.id;
+    let verifiedStudentName = studentName;
+    let verifiedStudentEmail = studentEmail;
+    if (req.user) {
+      if (!req.user.menteeProfile) {
+        throw new AppError('Student profile is unavailable.', 403, 'FORBIDDEN');
       }
+      menteeId = req.user.menteeProfile.id;
+      verifiedStudentName = req.user.name;
+      verifiedStudentEmail = req.user.email;
     }
 
     // 3. Concurrency-safe atomic transaction for conflict check & creation
@@ -76,8 +106,8 @@ export async function createBooking(req, res, next) {
           id: bookingId,
           mentorId,
           menteeId,
-          studentName,
-          studentEmail,
+          studentName: verifiedStudentName,
+          studentEmail: verifiedStudentEmail,
           sessionDate,
           timeSlot,
           sessionTopic,
@@ -93,12 +123,8 @@ export async function createBooking(req, res, next) {
         bookingId: newBooking.id,
         mentorId: newBooking.mentorId,
         mentorName,
-        studentName: newBooking.studentName,
-        studentEmail: newBooking.studentEmail,
         sessionDate: newBooking.sessionDate,
         timeSlot: newBooking.timeSlot,
-        sessionTopic: newBooking.sessionTopic,
-        notes: newBooking.notes,
         status: newBooking.status,
         createdAt: newBooking.createdAt,
       },
@@ -114,31 +140,16 @@ export async function createBooking(req, res, next) {
 export async function listBookings(req, res, next) {
   try {
     const { studentEmail, mentorId, status } = req.query;
-    const filter = {};
-
-    // Filter by student email
-    if (studentEmail) {
-      filter.studentEmail = studentEmail.toLowerCase();
+    const filter = getBookingScope(req.user);
+    if (req.user.role === 'ADMIN') {
+      if (studentEmail) filter.studentEmail = String(studentEmail).toLowerCase();
+      if (mentorId) filter.mentorId = String(mentorId);
     }
-
-    // Filter by mentor ID
-    if (mentorId) {
-      filter.mentorId = mentorId;
-    }
-
-    // Filter by status
     if (status) {
+      if (!['confirmed', 'cancelled', 'completed'].includes(status)) {
+        throw new AppError('Invalid booking status.', 400, 'VALIDATION_ERROR');
+      }
       filter.status = status;
-    }
-
-    // If user is authenticated as STUDENT without query params, scope to their bookings
-    if (req.user && req.user.role === 'STUDENT' && !studentEmail) {
-      filter.studentEmail = req.user.email;
-    }
-
-    // If user is authenticated as MENTOR without query params, scope to their mentor bookings
-    if (req.user && req.user.role === 'MENTOR' && req.user.mentorProfile && !mentorId) {
-      filter.mentorId = req.user.mentorProfile.id;
     }
 
     const bookings = await prisma.booking.findMany({
@@ -155,20 +166,7 @@ export async function listBookings(req, res, next) {
       orderBy: { sessionDate: 'desc' },
     });
 
-    const formatted = bookings.map((b) => ({
-      bookingId: b.id,
-      id: b.id,
-      mentorId: b.mentorId,
-      mentorName: b.mentor?.user?.name || 'Mentor',
-      studentName: b.studentName,
-      studentEmail: b.studentEmail,
-      sessionDate: b.sessionDate,
-      timeSlot: b.timeSlot,
-      sessionTopic: b.sessionTopic,
-      notes: b.notes,
-      status: b.status,
-      createdAt: b.createdAt,
-    }));
+    const formatted = bookings.map(bookingProjection);
 
     res.status(200).json({
       status: 'success',
@@ -188,9 +186,10 @@ export async function listBookings(req, res, next) {
 export async function getBookingById(req, res, next) {
   try {
     const { id } = req.params;
+    const scope = getBookingScope(req.user);
 
-    const booking = await prisma.booking.findUnique({
-      where: { id },
+    const booking = await prisma.booking.findFirst({
+      where: { id, ...scope },
       include: {
         mentor: {
           include: {
@@ -202,28 +201,9 @@ export async function getBookingById(req, res, next) {
       },
     });
 
-    if (!booking) {
-      return next(
-        new AppError(`Booking record with ID ${id} does not exist`, 404, 'BOOKING_NOT_FOUND')
-      );
-    }
+    if (!booking) throw new AppError('Booking not found.', 404, 'BOOKING_NOT_FOUND');
 
-    res.status(200).json({
-      status: 'success',
-      data: {
-        bookingId: booking.id,
-        mentorId: booking.mentorId,
-        mentorName: booking.mentor?.user?.name || 'Mentor',
-        studentName: booking.studentName,
-        studentEmail: booking.studentEmail,
-        sessionDate: booking.sessionDate,
-        timeSlot: booking.timeSlot,
-        sessionTopic: booking.sessionTopic,
-        notes: booking.notes,
-        status: booking.status,
-        createdAt: booking.createdAt,
-      },
-    });
+    res.status(200).json({ status: 'success', data: bookingProjection(booking) });
   } catch (err) {
     next(err);
   }
@@ -236,31 +216,11 @@ export async function cancelBooking(req, res, next) {
   try {
     const { id } = req.params;
 
-    const booking = await prisma.booking.findUnique({
-      where: { id },
-      include: {
-        mentor: true,
-      },
+    const booking = await prisma.booking.findFirst({
+      where: { id, ...getBookingScope(req.user) },
     });
 
-    if (!booking) {
-      return next(
-        new AppError(`Booking record with ID ${id} does not exist`, 404, 'BOOKING_NOT_FOUND')
-      );
-    }
-
-    // Role verification if authenticated
-    if (req.user) {
-      const isOwnerStudent = req.user.email.toLowerCase() === booking.studentEmail.toLowerCase();
-      const isOwnerMentor = req.user.mentorProfile && req.user.mentorProfile.id === booking.mentorId;
-      const isAdmin = req.user.role === 'ADMIN';
-
-      if (!isOwnerStudent && !isOwnerMentor && !isAdmin) {
-        return next(
-          new AppError('You do not have permission to cancel this appointment.', 403, 'FORBIDDEN')
-        );
-      }
-    }
+    if (!booking) throw new AppError('Booking not found.', 404, 'BOOKING_NOT_FOUND');
 
     const updated = await prisma.booking.update({
       where: { id },
@@ -288,14 +248,16 @@ export async function rescheduleBooking(req, res, next) {
     const { id } = req.params;
     const { sessionDate, timeSlot } = req.body;
 
-    if (!sessionDate || !timeSlot) {
+    const parsedDate = typeof sessionDate === 'string' ? new Date(`${sessionDate}T00:00:00.000Z`) : null;
+    const isValidDate = parsedDate && !Number.isNaN(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === sessionDate;
+    if (!isValidDate || sessionDate < new Date().toISOString().slice(0, 10) || typeof timeSlot !== 'string' || !timeSlot.trim()) {
       return next(
         new AppError('Both sessionDate and timeSlot are required to reschedule.', 400, 'VALIDATION_ERROR')
       );
     }
 
-    const booking = await prisma.booking.findUnique({
-      where: { id },
+    const booking = await prisma.booking.findFirst({
+      where: { id, ...getBookingScope(req.user) },
       include: {
         mentor: {
           include: {
@@ -305,11 +267,7 @@ export async function rescheduleBooking(req, res, next) {
       },
     });
 
-    if (!booking) {
-      return next(
-        new AppError(`Booking record with ID ${id} does not exist`, 404, 'BOOKING_NOT_FOUND')
-      );
-    }
+    if (!booking) throw new AppError('Booking not found.', 404, 'BOOKING_NOT_FOUND');
 
     const mentorName = booking.mentor?.user?.name || 'Mentor';
 

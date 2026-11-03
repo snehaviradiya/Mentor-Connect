@@ -14,14 +14,12 @@ const router = Router();
 // Guest or authenticated student can request bookings
 router.post('/', optionalAuthenticate, validateBookingInput, createBooking);
 
-// List bookings (supports filtering by query or authenticated user)
-router.get('/', optionalAuthenticate, listBookings);
+// Booking records are private to the student, assigned mentor, or admin.
+router.get('/', authenticate, listBookings);
 
-// Individual booking details
-router.get('/:id', optionalAuthenticate, getBookingById);
+router.get('/:id', authenticate, getBookingById);
 
-// Cancellation and Rescheduling
-router.patch('/:id/cancel', optionalAuthenticate, cancelBooking);
-router.patch('/:id/reschedule', optionalAuthenticate, rescheduleBooking);
+router.patch('/:id/cancel', authenticate, cancelBooking);
+router.patch('/:id/reschedule', authenticate, rescheduleBooking);
 
 export default router;

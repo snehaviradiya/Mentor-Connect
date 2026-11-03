@@ -73,6 +73,19 @@ describe('Authentication and Authorization API', () => {
       expect(res.body.details).toContain('Password is required and must be at least 6 characters.');
     });
 
+    it('does not allow public registration to grant the ADMIN role', async () => {
+      const res = await request(app).post('/api/auth/register').send({
+        name: 'Untrusted Admin',
+        email: `untrusted.admin.${Date.now()}@example.com`,
+        password: testPassword,
+        role: 'ADMIN',
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.details).toContain('Role must be one of: STUDENT, MENTOR.');
+    });
+
     it('registers a new MENTOR user with profile and expertise', async () => {
       const res = await request(app).post('/api/auth/register').send({
         name: 'Dr. Mentor Test',
