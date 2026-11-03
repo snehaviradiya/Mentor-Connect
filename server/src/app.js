@@ -6,7 +6,7 @@ import bookingRoutes from './routes/bookingRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { createCorsMiddleware } from './middleware/cors.js';
-import { apiLimiter, authLimiter } from './middleware/rateLimit.js';
+import { apiLimiter } from './middleware/rateLimit.js';
 
 // Load environment variables
 dotenv.config();
@@ -29,7 +29,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/', apiLimiter);
 
 // Mount modular API route handlers
-app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/mentors', mentorRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/dashboard', dashboardRoutes);

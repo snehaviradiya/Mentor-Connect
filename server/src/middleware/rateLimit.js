@@ -19,7 +19,7 @@ function createLimiter(max, windowMs, skip) {
 
 export function createRateLimiters({ windowMs = 15 * 60 * 1000, apiMax = 100, authMax = 10 } = {}) {
   return {
-    apiLimiter: createLimiter(apiMax, windowMs, (req) => req.path === '/auth' || req.path.startsWith('/auth/')),
+    apiLimiter: createLimiter(apiMax, windowMs, (req) => ['/auth/login', '/auth/register'].includes(req.path)),
     authLimiter: createLimiter(authMax, windowMs),
   };
 }

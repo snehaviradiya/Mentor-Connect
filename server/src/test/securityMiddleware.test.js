@@ -46,13 +46,13 @@ describe('Rate limiting', () => {
     const { apiLimiter, authLimiter } = createRateLimiters({ windowMs: 60_000, apiMax: 1, authMax: 1 });
     const testApp = express();
     testApp.use('/api/', apiLimiter);
-    testApp.use('/api/auth', authLimiter);
-    testApp.get('/api/auth/probe', (req, res) => res.status(200).json({ status: 'ok' }));
+    testApp.get('/api/auth/login', authLimiter, (req, res) => res.status(200).json({ status: 'ok' }));
     testApp.get('/api/resource', (req, res) => res.status(200).json({ status: 'ok' }));
 
-    const first = await request(testApp).get('/api/auth/probe');
-    const second = await request(testApp).get('/api/auth/probe');
+    const first = await request(testApp).get('/api/auth/login');
+    const second = await request(testApp).get('/api/auth/login');
     const normalRequest = await request(testApp).get('/api/resource');
+    const normalRequestLimited = await request(testApp).get('/api/resource');
 
     expect(first.status).toBe(200);
     expect(second.status).toBe(429);
@@ -64,6 +64,7 @@ describe('Rate limiting', () => {
     expect(second.headers['ratelimit-limit']).toBeDefined();
     expect(second.headers['x-ratelimit-limit']).toBeUndefined();
     expect(normalRequest.status).toBe(200);
+    expect(normalRequestLimited.status).toBe(429);
   });
 
   it('does not apply the API request limit to health checks', async () => {
