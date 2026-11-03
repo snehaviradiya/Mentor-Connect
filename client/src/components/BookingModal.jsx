@@ -150,7 +150,13 @@ export default function BookingModal({ mentor, onClose }) {
     try {
       const response = await createBooking(payload);
       if (response && response.status === 'success' && response.data) {
-        setSubmittedData(response.data);
+        setSubmittedData({
+          ...response.data,
+          studentName: payload.studentName,
+          studentEmail: payload.studentEmail,
+          sessionTopic: payload.sessionTopic,
+          notes: payload.notes,
+        });
         setSubmissionResult('success');
         toast.bookingApproved(
           `Demo session booked with ${mentor.name} for ${sessionDate} at ${timeSlotLabel}!`,

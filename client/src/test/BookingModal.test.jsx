@@ -117,12 +117,8 @@ describe('Booking Modal', () => {
         bookingId: 'bk_11223344',
         mentorId: 'mentor-1',
         mentorName: 'Aarav Sharma',
-        studentName: 'Abhay Kumar',
-        studentEmail: 'abhay@adypu.edu.in',
-        sessionDate: '2026-11-01',
+        sessionDate: '2026-11-15',
         timeSlot: '10:00 AM – 11:00 AM IST',
-        sessionTopic: 'Architecture Review',
-        notes: 'Portfolio review',
         status: 'confirmed',
         createdAt: '2026-10-23T15:00:00.000Z',
       },
@@ -137,7 +133,7 @@ describe('Booking Modal', () => {
       target: { value: '  abhay@adypu.edu.in  ' },
     });
     fireEvent.change(screen.getByLabelText(/Session Date/i), {
-      target: { value: '2026-11-01' },
+      target: { value: '2026-11-15' },
     });
     fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
       target: { value: 'slot-1' },
@@ -157,11 +153,14 @@ describe('Booking Modal', () => {
         mentorId: 'mentor-1',
         studentName: 'Abhay Kumar',
         studentEmail: 'abhay@adypu.edu.in',
-        sessionDate: '2026-11-01',
+        sessionDate: '2026-11-15',
         timeSlot: '10:00 AM – 11:00 AM IST',
         sessionTopic: 'Architecture Review',
         notes: 'Portfolio review',
       });
+      expect(screen.getByText('Abhay Kumar (abhay@adypu.edu.in)')).toBeInTheDocument();
+      expect(screen.getByText('Architecture Review')).toBeInTheDocument();
+      expect(screen.getByText('Portfolio review')).toBeInTheDocument();
     });
   });
 
