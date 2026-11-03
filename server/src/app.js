@@ -1,49 +1,18 @@
 import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import mentorRoutes from './routes/mentorRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { createCorsMiddleware } from './middleware/cors.js';
+import { apiLimiter, authLimiter } from './middleware/rateLimit.js';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
 app.use(express.json());
-
-// Cross-Origin Resource Sharing (CORS) setup
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  process.env.CORS_ORIGIN,
-].filter(Boolean);
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, server-to-server)
-      if (!origin || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(null, true); // Permissive in local development
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
-
-import rateLimit from 'express-rate-limit';
-
-// Apply rate limiting to all API routes
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: { status: 'fail', code: 'TOO_MANY_REQUESTS', message: 'Rate limit exceeded' },
-});
-
-app.use('/api/', apiLimiter);
+app.use(createCorsMiddleware());
 
 
 // Health check endpoint
@@ -56,8 +25,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.use('/api/', apiLimiter);
+
 // Mount modular API route handlers
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/mentors', mentorRoutes);
 app.use('/api/bookings', bookingRoutes);
 
