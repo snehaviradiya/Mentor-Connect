@@ -89,6 +89,8 @@ server/
 5. **CORS:** Cross-Origin Resource Sharing (`cors`) was not configured on Express, which would cause direct cross-port fetch failures between Vite (`localhost:5173`) and Express (`localhost:5000`) without the Vite reverse proxy.
 6. **Input Sanitization:** Express only parsed JSON payloads without boundary checking, schema validation, or XSS/injection mitigation.
 
+The findings above describe the initial audit state and are not the current implementation status. See the Day 3 update below.
+
 ---
 
 ## 6. Concurrency & Booking Double-Reservation Risks
@@ -144,3 +146,15 @@ flowchart TD
 6. **Step 6: Documentation & Git Verification**
    - Create `docs/API.md`, `docs/DATABASE.md`, update `server/README.md`.
    - Stage and commit changes with Conventional Commits under Sneha Viradiya's identity.
+
+---
+
+## 9. Day 3 Backend Status Update (4 November 2026)
+
+- Booking list, detail, cancel, and reschedule routes require authentication. Students are scoped by linked mentee profile, mentors by assigned mentor profile, and admins have explicit broad access. Inaccessible booking IDs return `404` to avoid disclosing resource existence.
+- Authenticated booking creation uses the database-backed user's identity. Guest booking email values do not link a booking to an account. Public booking responses omit student contact, topic, and notes; public mentor profiles omit account email.
+- Public registration cannot create `ADMIN` accounts. Mentor availability writes require an authenticated mentor owning the profile or an admin.
+- CORS uses exact origins from comma-separated `CORS_ORIGIN`, with development localhost defaults; origin-less non-browser requests are allowed and disallowed browser origins return `403`.
+- General API throttling is 100 requests per IP per 15 minutes; registration/login use a separate 10-request limit. Health checks are exempt and rate-limit responses include standard headers.
+- `GET /api/dashboard/student` and `GET /api/dashboard/mentor` are mounted and role-protected. Each uses one nested Prisma query, date-based session partitions, recent activity, and empty-history-safe summaries.
+- Backend validation: `npm test` passes 58 tests across 7 files. Frontend validation: `npm run build` in `client/` succeeds.

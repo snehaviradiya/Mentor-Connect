@@ -13,13 +13,19 @@
 - All request bodies must have `Content-Type: application/json`.
 - All response bodies return `application/json; charset=utf-8`.
 
-### 1.2 Authentication Header
+### 1.2 CORS & Rate Limits
+- `CORS_ORIGIN` accepts comma-separated exact browser origins. Outside production, `http://localhost:5173` and `http://localhost:3000` are also allowed by default.
+- Requests without an `Origin` header are allowed for command-line and server-to-server use. A browser origin outside the allowlist receives `403 CORS_ORIGIN_FORBIDDEN`. Wildcard origins are not supported with credentials.
+- General API routes are limited to 100 requests per IP per 15 minutes. Registration and login are limited to 10 requests per IP per 15 minutes. `/api/health` is exempt.
+- Rate-limited responses use HTTP `429`, code `TOO_MANY_REQUESTS`, and standard `RateLimit-*` headers.
+
+### 1.3 Authentication Header
 Endpoints requiring authentication must include the JWT bearer token in the HTTP `Authorization` header:
 ```http
 Authorization: Bearer <jwt-token>
 ```
 
-### 1.3 Standard Response Format
+### 1.4 Standard Response Format
 
 #### Success Response
 ```json
@@ -88,6 +94,7 @@ Registers a new student or mentor account with bcrypt password hashing.
 }
 ```
 *For `role: "MENTOR"`, optional profile fields (`title`, `category`, `bio`, `expertise`) may be supplied.*
+Public registration supports `STUDENT` and `MENTOR` only. `ADMIN` accounts must be provisioned through a trusted administrative process.
 
 - **Response `201 Created`:**
 ```json
@@ -175,6 +182,7 @@ Retrieves the authenticated user's profile and linked mentor/mentee record.
 
 ### 4.1 List & Search Mentors
 Retrieves all mentors with domain filtering and keyword search matching name, title, bio, or skills.
+Public mentor responses omit account email addresses and credentials.
 
 - **URL:** `/api/mentors`
 - **Method:** `GET`
@@ -191,7 +199,6 @@ Retrieves all mentors with domain filtering and keyword search matching name, ti
       {
         "id": "mentor-1",
         "name": "Aarav Sharma",
-        "email": "aarav.sharma@mentorconnect.adypu.edu.in",
         "title": "Senior Frontend Engineer @ Fintech Labs",
         "category": "Software Engineering",
         "expertise": ["React", "TypeScript", "Web Performance", "Next.js"],
@@ -261,7 +268,7 @@ Retrieves configured availability slots for a mentor. When `date` is provided, c
 ## 5. Booking & Scheduling APIs (`/api/bookings`)
 
 ### 5.1 Create Booking Request
-Submits a booking request. Enforces atomic transactional conflict verification so two students cannot book the same mentor slot concurrently.
+Submits a booking request. Enforces atomic transactional conflict verification so two students cannot book the same mentor slot concurrently. Guest requests may submit contact fields; authenticated students have their name, email, and mentee profile taken from the verified JWT identity instead. A guest-provided email is never used to establish account ownership.
 
 - **URL:** `/api/bookings`
 - **Method:** `POST`
@@ -287,12 +294,8 @@ Submits a booking request. Enforces atomic transactional conflict verification s
     "bookingId": "bk_11223344",
     "mentorId": "mentor-1",
     "mentorName": "Aarav Sharma",
-    "studentName": "Abhay Kumar",
-    "studentEmail": "abhay@adypu.edu.in",
     "sessionDate": "2026-11-01",
     "timeSlot": "10:00 AM – 11:00 AM IST",
-    "sessionTopic": "Architecture Review",
-    "notes": "Portfolio review",
     "status": "confirmed",
     "createdAt": "2026-10-28T06:05:00.000Z"
   }
@@ -330,24 +333,32 @@ Submits a booking request. Enforces atomic transactional conflict verification s
 ### 5.2 List Bookings
 - **URL:** `/api/bookings`
 - **Method:** `GET`
+- **Auth:** Bearer token required (`STUDENT`, `MENTOR`, or `ADMIN`).
 - **Query Parameters:**
-  - `studentEmail` *(optional)*: Filter by student email address.
-  - `mentorId` *(optional)*: Filter by mentor ID.
+  - `studentEmail` *(optional, Admin only)*: Filter by student email address.
+  - `mentorId` *(optional, Admin only)*: Filter by mentor ID.
   - `status` *(optional)*: `confirmed` | `cancelled` | `completed`.
-- **Response `200 OK`:** Returns array of matching booking records.
+- Students always receive bookings linked to their authenticated mentee profile. Mentors always receive bookings assigned to their authenticated mentor profile. Non-admin query filters cannot widen either scope.
+- Admins can list all bookings and use the optional identity filters.
+- **Response `200 OK`:** Returns matching booking records, including student email only to a student, assigned mentor, or admin authorized to see the booking.
+- Missing authentication returns `401 UNAUTHORIZED`; unsupported roles return `403 FORBIDDEN`.
 
 ### 5.3 Get Booking by ID
 - **URL:** `/api/bookings/:id`
 - **Method:** `GET`
+- **Auth:** Bearer token required (`STUDENT`, `MENTOR`, or `ADMIN`).
 - **Response `200 OK`:** Returns single booking receipt details.
 - **Error Codes:**
-  - `404 BOOKING_NOT_FOUND`: Booking ID not found.
+  - `401 UNAUTHORIZED`: Missing or invalid authentication.
+  - `403 FORBIDDEN`: Authenticated role has no booking access.
+  - `404 BOOKING_NOT_FOUND`: Booking does not exist or is unavailable to the caller.
 
 ### 5.4 Cancel Booking
 Cancels the booking and releases the slot for other students to reserve.
 
 - **URL:** `/api/bookings/:id/cancel`
 - **Method:** `PATCH`
+- **Auth:** Bearer token required. A student may cancel their own booking; a mentor may cancel a booking assigned to their profile; an admin may cancel any booking.
 - **Response `200 OK`:**
 ```json
 {
@@ -359,12 +370,14 @@ Cancels the booking and releases the slot for other students to reserve.
   }
 }
 ```
+- A booking outside the caller's scope returns `404 BOOKING_NOT_FOUND`; missing authentication returns `401`.
 
 ### 5.5 Reschedule Booking
 Reschedules a booking to a new date and time slot, atomically ensuring the target slot is unoccupied.
 
 - **URL:** `/api/bookings/:id/reschedule`
 - **Method:** `PATCH`
+- **Auth:** Same ownership policy as cancellation.
 - **Request Body:**
 ```json
 {
@@ -374,4 +387,26 @@ Reschedules a booking to a new date and time slot, atomically ensuring the targe
 ```
 - **Response `200 OK`:** Returns updated booking details.
 - **Error Codes:**
+  - `400 VALIDATION_ERROR`: Missing fields, malformed date, or a date in the past.
   - `409 SLOT_UNAVAILABLE`: The target slot is already booked.
+  - `404 BOOKING_NOT_FOUND`: Booking does not exist or is unavailable to the caller.
+
+## 6. Dashboards (`/api/dashboard`)
+
+Both endpoints use the authenticated user ID and linked profile from JWT middleware. Each dashboard is fetched with a single nested Prisma query. Session date partitions compare the stored `YYYY-MM-DD` value with today's UTC date; cancelled bookings are reported separately. Empty booking histories return empty arrays and zero counts.
+
+### 6.1 Student Dashboard
+- **URL:** `/api/dashboard/student`
+- **Method:** `GET`
+- **Auth:** Bearer token required; role `STUDENT` only.
+- **Response `200 OK`:** `data.student` contains `profile` (`id`, name, email, avatar, university, major, graduation year), `summary` (`totalBookings`, `upcomingSessions`, `pastSessions`, `cancelledSessions`), the corresponding session arrays, and `recentActivity` (up to five most recently created bookings).
+- Session entries include the booking ID, mentor's public profile fields, date, time slot, topic, status, and creation time. No password or token is returned.
+- **Errors:** `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`.
+
+### 6.2 Mentor Dashboard
+- **URL:** `/api/dashboard/mentor`
+- **Method:** `GET`
+- **Auth:** Bearer token required; role `MENTOR` only.
+- **Response `200 OK`:** `data.mentor` contains `profile`, `summary` (`totalBookings`, `upcomingAppointments`, `pastAppointments`, `cancelledAppointments`), the corresponding appointment arrays, `availabilitySummary`, and `recentActivity` (up to five most recently created bookings).
+- Appointment entries contain student contact fields only for bookings assigned to the authenticated mentor. Availability summary reports total/bookable slots and weekly/dated slot counts.
+- **Errors:** `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`.
