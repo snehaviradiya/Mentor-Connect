@@ -15,7 +15,6 @@ function formatMentorRecord(mentor) {
   return {
     id: mentor.id,
     name: mentor.user?.name || mentor.name || 'Mentor',
-    email: mentor.user?.email || mentor.email,
     title: mentor.title,
     category: mentor.category,
     expertise: parseJsonSafe(mentor.expertise, []),
@@ -43,7 +42,6 @@ export async function getAllMentors(req, res, next) {
           select: {
             id: true,
             name: true,
-            email: true,
             avatar: true,
           },
         },
@@ -101,7 +99,6 @@ export async function getMentorById(req, res, next) {
           select: {
             id: true,
             name: true,
-            email: true,
             avatar: true,
           },
         },
@@ -310,7 +307,6 @@ export async function updateMentorProfile(req, res, next) {
           select: {
             id: true,
             name: true,
-            email: true,
             avatar: true,
           },
         },

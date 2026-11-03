@@ -36,6 +36,7 @@ describe('Mentor Discovery and Profile APIs', () => {
       const mentor = res.body.data.mentors.find((m) => m.id === 'mentor-1');
       expect(mentor).toBeDefined();
       expect(mentor.name).toBe('Aarav Sharma');
+      expect(mentor.email).toBeUndefined();
       expect(mentor.category).toBe('Software Engineering');
       expect(Array.isArray(mentor.expertise)).toBe(true);
       expect(mentor.expertise).toContain('React');
@@ -78,6 +79,7 @@ describe('Mentor Discovery and Profile APIs', () => {
       expect(res.body.status).toBe('success');
       expect(res.body.data.mentor.id).toBe('mentor-1');
       expect(res.body.data.mentor.name).toBe('Aarav Sharma');
+      expect(res.body.data.mentor.email).toBeUndefined();
       expect(res.body.data.mentor.education).toContain('ADYPU');
       expect(res.body.data.mentor.availabilities.length).toBeGreaterThan(0);
     });
