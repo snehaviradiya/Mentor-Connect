@@ -64,6 +64,7 @@ export async function createBooking(req, res, next) {
             email: true,
           },
         },
+        availabilities: true,
       },
     });
 
@@ -75,7 +76,36 @@ export async function createBooking(req, res, next) {
 
     const mentorName = mentor.user?.name || 'Mentor';
 
-    // 2. Identify linked mentee profile if available (via authenticated session or email lookup)
+    // 2. Validate requested slot against mentor's configured availability schedule
+    if (mentor.availabilities && mentor.availabilities.length > 0) {
+      const targetDayOfWeek = new Date(`${sessionDate}T00:00:00.000Z`).getUTCDay();
+      const matchingSlot = mentor.availabilities.find((slot) => {
+        if (slot.slotLabel !== timeSlot) return false;
+        if (slot.specificDate) return slot.specificDate === sessionDate;
+        if (slot.dayOfWeek !== null && slot.dayOfWeek !== undefined) {
+          return slot.dayOfWeek === targetDayOfWeek;
+        }
+        return true;
+      });
+
+      if (!matchingSlot) {
+        throw new AppError(
+          `The selected time slot (${timeSlot}) is not offered by ${mentorName} on ${sessionDate}.`,
+          400,
+          'SLOT_NOT_AVAILABLE'
+        );
+      }
+
+      if (!matchingSlot.isBookable) {
+        throw new AppError(
+          `The selected time slot (${timeSlot}) is currently marked as unavailable for booking.`,
+          400,
+          'SLOT_NOT_BOOKABLE'
+        );
+      }
+    }
+
+    // 3. Identify linked mentee profile if available (via authenticated session or email lookup)
     let menteeId = null;
     let verifiedStudentName = studentName;
     let verifiedStudentEmail = studentEmail;
@@ -286,6 +316,7 @@ export async function rescheduleBooking(req, res, next) {
         mentor: {
           include: {
             user: { select: { name: true } },
+            availabilities: true,
           },
         },
       },
@@ -301,6 +332,35 @@ export async function rescheduleBooking(req, res, next) {
     }
 
     const mentorName = booking.mentor?.user?.name || 'Mentor';
+
+    // Validate rescheduled slot against mentor's configured availability
+    if (booking.mentor?.availabilities && booking.mentor.availabilities.length > 0) {
+      const targetDayOfWeek = new Date(`${sessionDate}T00:00:00.000Z`).getUTCDay();
+      const matchingSlot = booking.mentor.availabilities.find((slot) => {
+        if (slot.slotLabel !== timeSlot) return false;
+        if (slot.specificDate) return slot.specificDate === sessionDate;
+        if (slot.dayOfWeek !== null && slot.dayOfWeek !== undefined) {
+          return slot.dayOfWeek === targetDayOfWeek;
+        }
+        return true;
+      });
+
+      if (!matchingSlot) {
+        throw new AppError(
+          `The selected time slot (${timeSlot}) is not offered by ${mentorName} on ${sessionDate}.`,
+          400,
+          'SLOT_NOT_AVAILABLE'
+        );
+      }
+
+      if (!matchingSlot.isBookable) {
+        throw new AppError(
+          `The selected time slot (${timeSlot}) is currently marked as unavailable for booking.`,
+          400,
+          'SLOT_NOT_BOOKABLE'
+        );
+      }
+    }
 
     const updatedBooking = await prisma.$transaction(async (tx) => {
       // Check for slot collisions with other active bookings

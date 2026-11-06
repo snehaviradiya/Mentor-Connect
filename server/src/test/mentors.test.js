@@ -123,6 +123,52 @@ describe('Mentor Discovery and Profile APIs', () => {
       expect(openSlot.isBooked).toBe(false);
       expect(openSlot.isBookable).toBe(true);
     });
+
+    it('rejects invalid date query parameter with 400 VALIDATION_ERROR', async () => {
+      const res = await request(app).get(
+        '/api/mentors/mentor-1/availability?date=2026-99-99'
+      );
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.message).toContain('Expected valid calendar date');
+    });
+
+    it('filters slots by specific-date availability accurately', async () => {
+      // Add a date-specific availability slot to mentor-2
+      const specificSlot = await prisma.mentorAvailability.create({
+        data: {
+          mentorId: 'mentor-2',
+          slotLabel: '06:00 PM – 07:00 PM IST (Special Guest Slot)',
+          specificDate: '2026-12-15',
+          isBookable: true,
+        },
+      });
+
+      // When queried for the specific date, slot is present
+      const matchRes = await request(app).get(
+        '/api/mentors/mentor-2/availability?date=2026-12-15'
+      );
+      expect(matchRes.status).toBe(200);
+      const foundMatch = matchRes.body.data.slots.find(
+        (s) => s.label === specificSlot.slotLabel
+      );
+      expect(foundMatch).toBeDefined();
+
+      // When queried for a different date, slot is omitted
+      const diffRes = await request(app).get(
+        '/api/mentors/mentor-2/availability?date=2026-12-16'
+      );
+      expect(diffRes.status).toBe(200);
+      const foundDiff = diffRes.body.data.slots.find(
+        (s) => s.label === specificSlot.slotLabel
+      );
+      expect(foundDiff).toBeUndefined();
+
+      await prisma.mentorAvailability.deleteMany({
+        where: { id: specificSlot.id },
+      });
+    });
   });
 
   describe('PUT /api/mentors/:id/availability', () => {

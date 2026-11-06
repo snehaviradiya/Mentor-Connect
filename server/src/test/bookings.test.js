@@ -232,6 +232,56 @@ describe('Bookings and Scheduling Engine', () => {
       expect(res.body.code).toBe('VALIDATION_ERROR');
       expect(res.body.details).toContain('timeSlot is required.');
     });
+
+    it('rejects booking when requested slot is not offered in mentor availability with 400 SLOT_NOT_AVAILABLE', async () => {
+      const unofferedSlotPayload = {
+        mentorId: 'mentor-1',
+        studentName: 'Sneha Viradiya',
+        studentEmail: testStudentEmail,
+        sessionDate: '2026-11-20',
+        timeSlot: '11:45 PM – 12:45 AM IST (Nonexistent Slot)',
+        sessionTopic: 'Unoffered slot check',
+      };
+
+      const res = await request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send(unofferedSlotPayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('SLOT_NOT_AVAILABLE');
+      expect(res.body.message).toContain('not offered by Aarav Sharma');
+    });
+
+    it('rejects booking when requested slot is explicitly marked isBookable: false with 400 SLOT_NOT_BOOKABLE', async () => {
+      const blockedSlot = await prisma.mentorAvailability.create({
+        data: {
+          mentorId: 'mentor-1',
+          slotLabel: '08:00 AM – 09:00 AM IST (Blocked Slot)',
+          isBookable: false,
+        },
+      });
+
+      const blockedPayload = {
+        mentorId: 'mentor-1',
+        studentName: 'Sneha Viradiya',
+        studentEmail: testStudentEmail,
+        sessionDate: '2026-11-20',
+        timeSlot: blockedSlot.slotLabel,
+        sessionTopic: 'Blocked slot check',
+      };
+
+      const res = await request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send(blockedPayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('SLOT_NOT_BOOKABLE');
+      expect(res.body.message).toContain('marked as unavailable');
+
+      await prisma.mentorAvailability.deleteMany({ where: { id: blockedSlot.id } });
+    });
   });
 
   describe('GET /api/bookings - Listing and Querying', () => {
@@ -377,6 +427,19 @@ describe('Bookings and Scheduling Engine', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('rejects rescheduling to a slot not offered in mentor availability with 400 SLOT_NOT_AVAILABLE', async () => {
+      const res = await request(app)
+        .patch(`/api/bookings/${activeBookingId}/reschedule`)
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({
+          sessionDate: '2026-11-25',
+          timeSlot: '01:00 AM – 02:00 AM IST (Not in schedule)',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('SLOT_NOT_AVAILABLE');
     });
 
     it('rejects rescheduling to a date and slot that is already booked', async () => {

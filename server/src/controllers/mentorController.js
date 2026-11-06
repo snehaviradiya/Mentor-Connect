@@ -1,5 +1,6 @@
 import prisma from '../prisma.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { isValidDateString } from '../middleware/validator.js';
 
 function parseJsonSafe(val, fallback = []) {
   if (!val) return fallback;
@@ -134,6 +135,12 @@ export async function getMentorAvailability(req, res, next) {
     const { id } = req.params;
     const { date } = req.query; // YYYY-MM-DD
 
+    if (date !== undefined && !isValidDateString(date)) {
+      return next(
+        new AppError('Invalid date format. Expected valid calendar date in YYYY-MM-DD format.', 400, 'VALIDATION_ERROR')
+      );
+    }
+
     const mentor = await prisma.mentorProfile.findUnique({
       where: { id },
       include: {
@@ -163,7 +170,21 @@ export async function getMentorAvailability(req, res, next) {
       bookedSlots = activeBookings.map((b) => b.timeSlot);
     }
 
-    const slotsWithStatus = mentor.availabilities.map((slot) => {
+    const targetDayOfWeek = date
+      ? new Date(`${date}T00:00:00.000Z`).getUTCDay()
+      : null;
+
+    const applicableSlots = date
+      ? mentor.availabilities.filter((slot) => {
+          if (slot.specificDate) return slot.specificDate === date;
+          if (slot.dayOfWeek !== null && slot.dayOfWeek !== undefined) {
+            return slot.dayOfWeek === targetDayOfWeek;
+          }
+          return true;
+        })
+      : mentor.availabilities;
+
+    const slotsWithStatus = applicableSlots.map((slot) => {
       const isBooked = bookedSlots.includes(slot.slotLabel);
       return {
         id: slot.id,
