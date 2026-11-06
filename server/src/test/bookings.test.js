@@ -6,6 +6,7 @@ import { generateToken } from '../middleware/auth.js';
 
 describe('Bookings and Scheduling Engine', () => {
   let createdBookingId = '';
+  let activeBookingId = '';
   const testStudentEmail = 'student.booking.test@adypu.edu.in';
   let studentToken = '';
 
@@ -191,6 +192,46 @@ describe('Bookings and Scheduling Engine', () => {
       expect(res.body.code).toBe('VALIDATION_ERROR');
       expect(res.body.details).toContain('sessionTopic cannot exceed 150 characters.');
     });
+
+    it('rejects non-existent calendar date (e.g. 2026-02-31) with 400 VALIDATION_ERROR', async () => {
+      const invalidDatePayload = {
+        mentorId: 'mentor-1',
+        studentName: 'Sneha Viradiya',
+        studentEmail: testStudentEmail,
+        sessionDate: '2026-02-31',
+        timeSlot: '10:00 AM – 11:00 AM IST',
+        sessionTopic: 'Invalid calendar date check',
+      };
+
+      const res = await request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send(invalidDatePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.details).toContain('sessionDate is required in YYYY-MM-DD format.');
+    });
+
+    it('rejects malformed or empty timeSlot with 400 VALIDATION_ERROR', async () => {
+      const malformedSlotPayload = {
+        mentorId: 'mentor-1',
+        studentName: 'Sneha Viradiya',
+        studentEmail: testStudentEmail,
+        sessionDate: '2026-11-20',
+        timeSlot: '  ',
+        sessionTopic: 'Empty slot test',
+      };
+
+      const res = await request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send(malformedSlotPayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.details).toContain('timeSlot is required.');
+    });
   });
 
   describe('GET /api/bookings - Listing and Querying', () => {
@@ -253,6 +294,17 @@ describe('Bookings and Scheduling Engine', () => {
       expect(res.body.data.status).toBe('cancelled');
     });
 
+    it('rejects cancelling an already cancelled booking with 400 INVALID_STATUS_TRANSITION', async () => {
+      const res = await request(app)
+        .patch(`/api/bookings/${createdBookingId}/cancel`)
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.status).toBe('fail');
+      expect(res.body.code).toBe('INVALID_STATUS_TRANSITION');
+      expect(res.body.message).toContain('already cancelled');
+    });
+
     it('releases the time slot so it can now be booked by another request without 409 conflict', async () => {
       // Re-attempt booking the same slot that was previously booked and then cancelled
       const rebookPayload = {
@@ -272,13 +324,29 @@ describe('Bookings and Scheduling Engine', () => {
       expect(res.status).toBe(201);
       expect(res.body.status).toBe('success');
       expect(res.body.data.status).toBe('confirmed');
+      activeBookingId = res.body.data.bookingId;
     });
   });
 
   describe('PATCH /api/bookings/:id/reschedule', () => {
-    it('reschedules an existing booking to an open date and slot', async () => {
+    it('rejects rescheduling a cancelled booking with 400 INVALID_STATUS_TRANSITION', async () => {
       const res = await request(app)
         .patch(`/api/bookings/${createdBookingId}/reschedule`)
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({
+          sessionDate: '2026-11-25',
+          timeSlot: '02:00 PM – 03:00 PM IST',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.status).toBe('fail');
+      expect(res.body.code).toBe('INVALID_STATUS_TRANSITION');
+      expect(res.body.message).toContain('Cannot reschedule a cancelled booking');
+    });
+
+    it('reschedules an active booking to an open date and slot', async () => {
+      const res = await request(app)
+        .patch(`/api/bookings/${activeBookingId}/reschedule`)
         .set('Authorization', `Bearer ${studentToken}`)
         .send({
           sessionDate: '2026-11-25',
@@ -293,7 +361,7 @@ describe('Bookings and Scheduling Engine', () => {
 
     it('rejects malformed reschedule dates with 400 VALIDATION_ERROR', async () => {
       const res = await request(app)
-        .patch(`/api/bookings/${createdBookingId}/reschedule`)
+        .patch(`/api/bookings/${activeBookingId}/reschedule`)
         .set('Authorization', `Bearer ${studentToken}`)
         .send({ sessionDate: '2026-99-99', timeSlot: '02:00 PM – 03:00 PM IST' });
 
@@ -301,17 +369,43 @@ describe('Bookings and Scheduling Engine', () => {
       expect(res.body.code).toBe('VALIDATION_ERROR');
     });
 
-    it('rejects rescheduling to a date and slot that is already booked', async () => {
+    it('rejects rescheduling to a date in the past with 400 VALIDATION_ERROR', async () => {
       const res = await request(app)
-        .patch(`/api/bookings/${createdBookingId}/reschedule`)
+        .patch(`/api/bookings/${activeBookingId}/reschedule`)
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({ sessionDate: '2020-01-01', timeSlot: '02:00 PM – 03:00 PM IST' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('rejects rescheduling to a date and slot that is already booked', async () => {
+      // Create a second active booking to collide with
+      const secondBooking = await prisma.booking.create({
+        data: {
+          id: 'bk_collision_target',
+          mentorId: 'mentor-1',
+          studentName: 'Target Student',
+          studentEmail: testStudentEmail,
+          sessionDate: '2026-11-26',
+          timeSlot: '10:00 AM – 11:00 AM IST',
+          sessionTopic: 'Collision target',
+          status: 'confirmed',
+        },
+      });
+
+      const res = await request(app)
+        .patch(`/api/bookings/${activeBookingId}/reschedule`)
         .set('Authorization', `Bearer ${studentToken}`)
         .send({
-          sessionDate: '2026-11-15',
+          sessionDate: '2026-11-26',
           timeSlot: '10:00 AM – 11:00 AM IST',
         });
 
       expect(res.status).toBe(409);
       expect(res.body.code).toBe('SLOT_UNAVAILABLE');
+
+      await prisma.booking.deleteMany({ where: { id: secondBooking.id } });
     });
   });
 });

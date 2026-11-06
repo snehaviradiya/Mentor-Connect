@@ -1,5 +1,6 @@
 import prisma from '../prisma.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { isValidDateString, isValidTimeSlot, getTodayDateString } from '../middleware/validator.js';
 
 function generateBookingId() {
   const timestamp = Date.now().toString(36);
@@ -222,6 +223,13 @@ export async function cancelBooking(req, res, next) {
 
     if (!booking) throw new AppError('Booking not found.', 404, 'BOOKING_NOT_FOUND');
 
+    if (booking.status === 'cancelled') {
+      throw new AppError('Booking is already cancelled.', 400, 'INVALID_STATUS_TRANSITION');
+    }
+    if (booking.status === 'completed') {
+      throw new AppError('Cannot cancel a completed booking.', 400, 'INVALID_STATUS_TRANSITION');
+    }
+
     const updated = await prisma.booking.update({
       where: { id },
       data: { status: 'cancelled' },
@@ -247,10 +255,9 @@ export async function rescheduleBooking(req, res, next) {
   try {
     const { id } = req.params;
     const { sessionDate, timeSlot } = req.body;
+    const todayStr = getTodayDateString();
 
-    const parsedDate = typeof sessionDate === 'string' ? new Date(`${sessionDate}T00:00:00.000Z`) : null;
-    const isValidDate = parsedDate && !Number.isNaN(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === sessionDate;
-    if (!isValidDate || sessionDate < new Date().toISOString().slice(0, 10) || typeof timeSlot !== 'string' || !timeSlot.trim()) {
+    if (!isValidDateString(sessionDate) || sessionDate < todayStr || !isValidTimeSlot(timeSlot)) {
       return next(
         new AppError('Both sessionDate and timeSlot are required to reschedule.', 400, 'VALIDATION_ERROR')
       );
@@ -268,6 +275,13 @@ export async function rescheduleBooking(req, res, next) {
     });
 
     if (!booking) throw new AppError('Booking not found.', 404, 'BOOKING_NOT_FOUND');
+
+    if (booking.status === 'cancelled') {
+      throw new AppError('Cannot reschedule a cancelled booking.', 400, 'INVALID_STATUS_TRANSITION');
+    }
+    if (booking.status === 'completed') {
+      throw new AppError('Cannot reschedule a completed booking.', 400, 'INVALID_STATUS_TRANSITION');
+    }
 
     const mentorName = booking.mentor?.user?.name || 'Mentor';
 

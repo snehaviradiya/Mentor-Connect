@@ -4,12 +4,31 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 // Helper to get today's date formatted as YYYY-MM-DD in local time
-function getTodayDateString() {
+export function getTodayDateString() {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+/**
+ * Validates that a string is a strictly valid calendar date in YYYY-MM-DD format.
+ */
+export function isValidDateString(dateStr) {
+  if (typeof dateStr !== 'string' || !DATE_REGEX.test(dateStr)) return false;
+  const parsed = new Date(`${dateStr}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return parsed.toISOString().slice(0, 10) === dateStr;
+}
+
+/**
+ * Validates that a timeSlot label is non-empty and well-formed.
+ */
+export function isValidTimeSlot(slot) {
+  if (typeof slot !== 'string') return false;
+  const trimmed = slot.trim();
+  return trimmed.length >= 3 && trimmed.length <= 100;
 }
 
 /**
@@ -38,13 +57,13 @@ export function validateBookingInput(req, res, next) {
     errors.push('Please provide a valid email address.');
   }
 
-  if (!sessionDate || typeof sessionDate !== 'string' || !DATE_REGEX.test(sessionDate)) {
+  if (!sessionDate || typeof sessionDate !== 'string' || !isValidDateString(sessionDate)) {
     errors.push('sessionDate is required in YYYY-MM-DD format.');
   } else if (sessionDate < todayStr) {
     errors.push('sessionDate cannot be in the past');
   }
 
-  if (!timeSlot || typeof timeSlot !== 'string' || !timeSlot.trim()) {
+  if (!timeSlot || !isValidTimeSlot(timeSlot)) {
     errors.push('timeSlot is required.');
   }
 
