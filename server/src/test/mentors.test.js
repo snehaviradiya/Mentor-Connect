@@ -68,6 +68,67 @@ describe('Mentor Discovery and Profile APIs', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data.mentors.length).toBe(0);
+      expect(res.body.data.total).toBe(0);
+      expect(res.body.data.totalPages).toBe(0);
+    });
+
+    it('paginates mentors with page and limit parameters, returning pagination metadata', async () => {
+      const res = await request(app).get('/api/mentors?page=1&limit=3');
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('success');
+      expect(res.body.data.mentors.length).toBe(3);
+      expect(res.body.data.page).toBe(1);
+      expect(res.body.data.limit).toBe(3);
+      expect(res.body.data.total).toBeGreaterThanOrEqual(8);
+      expect(res.body.data.totalPages).toBeGreaterThanOrEqual(3);
+    });
+
+    it('retrieves non-overlapping mentors on subsequent page', async () => {
+      const page1Res = await request(app).get('/api/mentors?page=1&limit=3');
+      const page2Res = await request(app).get('/api/mentors?page=2&limit=3');
+
+      expect(page1Res.status).toBe(200);
+      expect(page2Res.status).toBe(200);
+
+      const page1Ids = page1Res.body.data.mentors.map((m) => m.id);
+      const page2Ids = page2Res.body.data.mentors.map((m) => m.id);
+
+      expect(page1Ids.length).toBe(3);
+      expect(page2Ids.length).toBe(3);
+      page2Ids.forEach((id) => {
+        expect(page1Ids).not.toContain(id);
+      });
+    });
+
+    it('rejects invalid page parameter with 400 VALIDATION_ERROR', async () => {
+      const res = await request(app).get('/api/mentors?page=-5');
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.message).toContain('page parameter must be a positive integer');
+    });
+
+    it('rejects invalid limit parameter with 400 VALIDATION_ERROR', async () => {
+      const res = await request(app).get('/api/mentors?limit=100');
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.message).toContain('limit parameter must be an integer between 1 and 50');
+    });
+
+    it('combines database category filtering with pagination', async () => {
+      const res = await request(app).get(
+        '/api/mentors?category=Software%20Engineering&page=1&limit=2'
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.mentors.length).toBeLessThanOrEqual(2);
+      expect(res.body.data.page).toBe(1);
+      expect(res.body.data.limit).toBe(2);
+      res.body.data.mentors.forEach((m) => {
+        expect(m.category).toBe('Software Engineering');
+      });
     });
   });
 

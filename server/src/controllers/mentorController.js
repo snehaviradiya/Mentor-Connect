@@ -29,55 +29,92 @@ function formatMentorRecord(mentor) {
   };
 }
 
+const CANONICAL_CATEGORIES = [
+  'Software Engineering',
+  'Data Science & AI',
+  'Cloud & DevOps',
+  'UI/UX Design',
+  'Product & Strategy',
+];
+
 /**
- * List mentors with optional category filtering and search query matching.
+ * List mentors with database-side filtering, keyword search, and pagination.
  */
 export async function getAllMentors(req, res, next) {
   try {
     const { category, search, q } = req.query;
-    const searchTerm = (search || q || '').trim().toLowerCase();
 
-    const mentors = await prisma.mentorProfile.findMany({
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
-          },
-        },
-        availabilities: true,
-      },
-      orderBy: { id: 'asc' },
-    });
+    // 1. Pagination parameters and validation
+    const page = req.query.page !== undefined ? Number(req.query.page) : 1;
+    const limit = req.query.limit !== undefined ? Number(req.query.limit) : 10;
 
-    let formatted = mentors.map(formatMentorRecord);
-
-    // Apply category filter if not "All"
-    if (category && category.toLowerCase() !== 'all') {
-      formatted = formatted.filter(
-        (m) => m.category.toLowerCase() === category.toLowerCase()
+    if (req.query.page !== undefined && (!Number.isInteger(page) || page < 1)) {
+      return next(
+        new AppError('page parameter must be a positive integer >= 1.', 400, 'VALIDATION_ERROR')
       );
     }
 
-    // Apply search filter (matches name, title, bio, or any expertise tag)
-    if (searchTerm) {
-      formatted = formatted.filter((m) => {
-        const nameMatch = m.name.toLowerCase().includes(searchTerm);
-        const titleMatch = m.title.toLowerCase().includes(searchTerm);
-        const bioMatch = m.bio.toLowerCase().includes(searchTerm);
-        const expertiseMatch = m.expertise.some((skill) =>
-          skill.toLowerCase().includes(searchTerm)
-        );
-        return nameMatch || titleMatch || bioMatch || expertiseMatch;
-      });
+    if (req.query.limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 50)) {
+      return next(
+        new AppError('limit parameter must be an integer between 1 and 50.', 400, 'VALIDATION_ERROR')
+      );
     }
+
+    // 2. Build database-side query filter
+    const where = {};
+
+    if (category && category.toLowerCase() !== 'all') {
+      const canonical = CANONICAL_CATEGORIES.find(
+        (c) => c.toLowerCase() === category.toLowerCase()
+      ) || category;
+      where.category = { equals: canonical };
+    }
+
+    const searchTerm = (search || q || '').trim();
+    if (searchTerm) {
+      where.OR = [
+        { user: { name: { contains: searchTerm } } },
+        { title: { contains: searchTerm } },
+        { bio: { contains: searchTerm } },
+        { expertise: { contains: searchTerm } },
+        { mentoringTopics: { contains: searchTerm } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    // 3. Database queries for count and paginated items in parallel
+    const [total, mentors] = await Promise.all([
+      prisma.mentorProfile.count({ where }),
+      prisma.mentorProfile.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+          availabilities: true,
+        },
+        orderBy: { id: 'asc' },
+      }),
+    ]);
+
+    const formatted = mentors.map(formatMentorRecord);
+    const totalPages = Math.ceil(total / limit) || (total === 0 ? 0 : 1);
 
     res.status(200).json({
       status: 'success',
       data: {
         mentors: formatted,
-        total: formatted.length,
+        total,
+        page,
+        limit,
+        totalPages,
       },
       mentors: formatted, // For dual compatibility with any client caller
     });
