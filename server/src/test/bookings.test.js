@@ -408,4 +408,109 @@ describe('Bookings and Scheduling Engine', () => {
       await prisma.booking.deleteMany({ where: { id: secondBooking.id } });
     });
   });
+
+  describe('Concurrency and Database-level Conflict Safety', () => {
+    it('handles two simultaneous concurrent requests for the same mentor, date, and slot: exactly one succeeds and one receives 409', async () => {
+      const concurrencyDate = '2026-11-27';
+      const slot = '02:00 PM – 03:00 PM IST';
+
+      const reqA = request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({
+          mentorId: 'mentor-1',
+          studentName: 'Concurrent Student A',
+          studentEmail: testStudentEmail,
+          sessionDate: concurrencyDate,
+          timeSlot: slot,
+          sessionTopic: 'Concurrency Test Session A',
+        });
+
+      const reqB = request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({
+          mentorId: 'mentor-1',
+          studentName: 'Concurrent Student B',
+          studentEmail: testStudentEmail,
+          sessionDate: concurrencyDate,
+          timeSlot: slot,
+          sessionTopic: 'Concurrency Test Session B',
+        });
+
+      const [resA, resB] = await Promise.all([reqA, reqB]);
+
+      const statuses = [resA.status, resB.status].sort();
+      expect(statuses).toEqual([201, 409]);
+
+      const conflictRes = resA.status === 409 ? resA : resB;
+      expect(conflictRes.body.status).toBe('fail');
+      expect(conflictRes.body.code).toBe('SLOT_UNAVAILABLE');
+    });
+
+    it('allows concurrent requests for different mentors on the same date and slot', async () => {
+      const targetDate = '2026-11-28';
+      const slot = '10:00 AM – 11:00 AM IST';
+
+      const [res1, res2] = await Promise.all([
+        request(app)
+          .post('/api/bookings')
+          .set('Authorization', `Bearer ${studentToken}`)
+          .send({
+            mentorId: 'mentor-1',
+            studentName: 'Student 1',
+            studentEmail: testStudentEmail,
+            sessionDate: targetDate,
+            timeSlot: slot,
+            sessionTopic: 'Mentor 1 Session',
+          }),
+        request(app)
+          .post('/api/bookings')
+          .set('Authorization', `Bearer ${studentToken}`)
+          .send({
+            mentorId: 'mentor-2',
+            studentName: 'Student 2',
+            studentEmail: testStudentEmail,
+            sessionDate: targetDate,
+            timeSlot: slot,
+            sessionTopic: 'Mentor 2 Session',
+          }),
+      ]);
+
+      expect(res1.status).toBe(201);
+      expect(res2.status).toBe(201);
+    });
+
+    it('allows concurrent requests for different slots for the same mentor', async () => {
+      const targetDate = '2026-11-29';
+
+      const [res1, res2] = await Promise.all([
+        request(app)
+          .post('/api/bookings')
+          .set('Authorization', `Bearer ${studentToken}`)
+          .send({
+            mentorId: 'mentor-1',
+            studentName: 'Student Slot 1',
+            studentEmail: testStudentEmail,
+            sessionDate: targetDate,
+            timeSlot: '10:00 AM – 11:00 AM IST',
+            sessionTopic: 'Slot 1 Session',
+          }),
+        request(app)
+          .post('/api/bookings')
+          .set('Authorization', `Bearer ${studentToken}`)
+          .send({
+            mentorId: 'mentor-1',
+            studentName: 'Student Slot 2',
+            studentEmail: testStudentEmail,
+            sessionDate: targetDate,
+            timeSlot: '04:00 PM – 05:00 PM IST',
+            sessionTopic: 'Slot 2 Session',
+          }),
+      ]);
+
+      expect(res1.status).toBe(201);
+      expect(res2.status).toBe(201);
+    });
+  });
 });

@@ -128,6 +128,13 @@ const SEED_MENTORS = [
 export async function seedDatabase() {
   console.log('Seeding database...');
 
+  // Ensure active booking partial unique index
+  await prisma.$executeRawUnsafe(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_active_unique
+    ON bookings (mentorId, sessionDate, timeSlot)
+    WHERE status != 'cancelled';
+  `);
+
   // Clean existing records in reverse relational order
   await prisma.booking.deleteMany({});
   await prisma.mentorAvailability.deleteMany({});

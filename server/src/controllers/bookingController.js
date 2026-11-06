@@ -36,6 +36,14 @@ function bookingProjection(booking) {
   };
 }
 
+function isUniqueConflictError(err) {
+  return (
+    err?.code === 'P2002' ||
+    err?.message?.includes('UNIQUE constraint failed') ||
+    err?.message?.includes('idx_bookings_active_unique')
+  );
+}
+
 /**
  * Create a new mentorship booking session with concurrency-safe conflict verification.
  */
@@ -116,6 +124,15 @@ export async function createBooking(req, res, next) {
           status: 'confirmed',
         },
       });
+    }).catch((err) => {
+      if (isUniqueConflictError(err)) {
+        throw new AppError(
+          `The selected time slot (${sessionDate} at ${timeSlot}) is already booked for ${mentorName}`,
+          409,
+          'SLOT_UNAVAILABLE'
+        );
+      }
+      throw err;
     });
 
     res.status(201).json({
@@ -313,6 +330,15 @@ export async function rescheduleBooking(req, res, next) {
           status: 'confirmed',
         },
       });
+    }).catch((err) => {
+      if (isUniqueConflictError(err)) {
+        throw new AppError(
+          `The selected time slot (${sessionDate} at ${timeSlot}) is already booked for ${mentorName}`,
+          409,
+          'SLOT_UNAVAILABLE'
+        );
+      }
+      throw err;
     });
 
     res.status(200).json({
