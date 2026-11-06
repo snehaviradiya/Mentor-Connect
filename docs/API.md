@@ -181,14 +181,16 @@ Retrieves the authenticated user's profile and linked mentor/mentee record.
 ## 4. Mentor APIs (`/api/mentors`)
 
 ### 4.1 List & Search Mentors
-Retrieves all mentors with domain filtering and keyword search matching name, title, bio, or skills.
+Retrieves mentors with database-side category filtering, full-text keyword search matching name, title, bio, skills, and mentoring topics, plus structured pagination.
 Public mentor responses omit account email addresses and credentials.
 
 - **URL:** `/api/mentors`
 - **Method:** `GET`
 - **Auth:** None (Public)
 - **Query Parameters:**
-  - `category` *(optional)*: E.g., `Software Engineering`, `Data Science & AI`, `UI/UX Design`, `Cloud & DevOps`.
+  - `page` *(optional, default: `1`)*: Page number (positive integer >= 1).
+  - `limit` *(optional, default: `10`)*: Number of items per page (integer between 1 and 50).
+  - `category` *(optional)*: E.g., `Software Engineering`, `Data Science & AI`, `UI/UX Design`, `Cloud & DevOps`, `Product & Strategy`.
   - `search` or `q` *(optional)*: Keyword search query (e.g., `React`, `Kubernetes`, `Aarav`).
 - **Response `200 OK`:**
 ```json
@@ -210,10 +212,16 @@ Public mentor responses omit account email addresses and credentials.
         "mentoringTopics": ["Frontend Architecture", "Technical Interview Prep"]
       }
     ],
-    "total": 1
-  }
+    "total": 10,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1
+  },
+  "mentors": [ ... ]
 }
 ```
+- **Error Codes:**
+  - `400 VALIDATION_ERROR`: Invalid `page` (< 1) or `limit` (< 1 or > 50).
 
 ### 4.2 Get Mentor by ID
 - **URL:** `/api/mentors/:id`
@@ -224,11 +232,13 @@ Public mentor responses omit account email addresses and credentials.
   - `404 MENTOR_NOT_FOUND`: Mentor ID not found.
 
 ### 4.3 Get Mentor Availability & Booked Slots
-Retrieves configured availability slots for a mentor. When `date` is provided, cross-references active bookings to show which slots are already reserved.
+Retrieves configured availability slots for a mentor. When `date` is provided, validates format, evaluates specific-date and day-of-week recurring schedules, and cross-references active non-cancelled bookings to report slot occupancy accurately.
 
 - **URL:** `/api/mentors/:id/availability?date=YYYY-MM-DD`
 - **Method:** `GET`
 - **Auth:** None (Public)
+- **Query Parameters:**
+  - `date` *(optional)*: Valid calendar date in `YYYY-MM-DD` format.
 - **Response `200 OK`:**
 ```json
 {
@@ -253,6 +263,9 @@ Retrieves configured availability slots for a mentor. When `date` is provided, c
   }
 }
 ```
+- **Error Codes:**
+  - `400 VALIDATION_ERROR`: Malformed or invalid `date` parameter.
+  - `404 MENTOR_NOT_FOUND`: Mentor ID not found.
 
 ### 4.4 Update Mentor Availability
 - **URL:** `/api/mentors/:id/availability`
@@ -268,7 +281,8 @@ Retrieves configured availability slots for a mentor. When `date` is provided, c
 ## 5. Booking & Scheduling APIs (`/api/bookings`)
 
 ### 5.1 Create Booking Request
-Submits a booking request. Enforces atomic transactional conflict verification so two students cannot book the same mentor slot concurrently. Guest requests may submit contact fields; authenticated students have their name, email, and mentee profile taken from the verified JWT identity instead. A guest-provided email is never used to establish account ownership.
+Submits a booking request. Validates session dates (strictly valid future calendar dates) and time slots against the mentor's configured availability schedule. Enforces database-level concurrency protection via partial unique index `idx_bookings_active_unique` on `(mentorId, sessionDate, timeSlot)` where `status != 'cancelled'`. Concurrent attempts for the same mentor and slot return a guaranteed HTTP `409 SLOT_UNAVAILABLE`.
+Guest requests may submit contact fields; authenticated students have their name, email, and mentee profile taken from the verified JWT identity instead. A guest-provided email is never used to establish account ownership.
 
 - **URL:** `/api/bookings`
 - **Method:** `POST`
@@ -279,7 +293,7 @@ Submits a booking request. Enforces atomic transactional conflict verification s
   "mentorId": "mentor-1",
   "studentName": "Abhay Kumar",
   "studentEmail": "abhay@adypu.edu.in",
-  "sessionDate": "2026-11-01",
+  "sessionDate": "2026-11-15",
   "timeSlot": "10:00 AM – 11:00 AM IST",
   "sessionTopic": "Architecture Review",
   "notes": "Portfolio review"
@@ -294,7 +308,7 @@ Submits a booking request. Enforces atomic transactional conflict verification s
     "bookingId": "bk_11223344",
     "mentorId": "mentor-1",
     "mentorName": "Aarav Sharma",
-    "sessionDate": "2026-11-01",
+    "sessionDate": "2026-11-15",
     "timeSlot": "10:00 AM – 11:00 AM IST",
     "status": "confirmed",
     "createdAt": "2026-10-28T06:05:00.000Z"
@@ -307,7 +321,7 @@ Submits a booking request. Enforces atomic transactional conflict verification s
 {
   "status": "fail",
   "code": "SLOT_UNAVAILABLE",
-  "message": "The selected time slot (2026-11-01 at 05:30 PM – 06:30 PM IST (Simulated Conflict Slot)) is already booked for Aarav Sharma"
+  "message": "The selected time slot (2026-11-15 at 10:00 AM – 11:00 AM IST) is already booked for Aarav Sharma"
 }
 ```
 
@@ -318,6 +332,15 @@ Submits a booking request. Enforces atomic transactional conflict verification s
   "code": "VALIDATION_ERROR",
   "message": "Invalid booking parameters provided",
   "details": ["sessionDate cannot be in the past"]
+}
+```
+
+- **Slot Not Available / Not Bookable `400 Bad Request`:**
+```json
+{
+  "status": "fail",
+  "code": "SLOT_NOT_AVAILABLE",
+  "message": "The selected time slot (11:45 PM – 12:45 AM IST) is not offered by Aarav Sharma on 2026-11-15."
 }
 ```
 
@@ -354,7 +377,7 @@ Submits a booking request. Enforces atomic transactional conflict verification s
   - `404 BOOKING_NOT_FOUND`: Booking does not exist or is unavailable to the caller.
 
 ### 5.4 Cancel Booking
-Cancels the booking and releases the slot for other students to reserve.
+Cancels an active booking and releases the slot for other students to reserve. Rejects invalid lifecycle transitions on already-cancelled or completed sessions.
 
 - **URL:** `/api/bookings/:id/cancel`
 - **Method:** `PATCH`
@@ -370,10 +393,13 @@ Cancels the booking and releases the slot for other students to reserve.
   }
 }
 ```
-- A booking outside the caller's scope returns `404 BOOKING_NOT_FOUND`; missing authentication returns `401`.
+- **Error Codes:**
+  - `400 INVALID_STATUS_TRANSITION`: Booking is already cancelled or has been completed.
+  - `401 UNAUTHORIZED`: Missing authentication.
+  - `404 BOOKING_NOT_FOUND`: Booking does not exist or caller lacks authorization.
 
 ### 5.5 Reschedule Booking
-Reschedules a booking to a new date and time slot, atomically ensuring the target slot is unoccupied.
+Reschedules an active booking to a new date and time slot. Validates the slot against the mentor's configured availability, verifies date validity in the future, and prevents collisions via concurrency-safe atomic checks and unique constraints.
 
 - **URL:** `/api/bookings/:id/reschedule`
 - **Method:** `PATCH`
@@ -381,13 +407,15 @@ Reschedules a booking to a new date and time slot, atomically ensuring the targe
 - **Request Body:**
 ```json
 {
-  "sessionDate": "2026-11-20",
+  "sessionDate": "2026-11-25",
   "timeSlot": "02:00 PM – 03:00 PM IST"
 }
 ```
 - **Response `200 OK`:** Returns updated booking details.
 - **Error Codes:**
   - `400 VALIDATION_ERROR`: Missing fields, malformed date, or a date in the past.
+  - `400 INVALID_STATUS_TRANSITION`: Attempting to reschedule a cancelled or completed booking.
+  - `400 SLOT_NOT_AVAILABLE`: Target slot is not offered in the mentor's availability schedule.
   - `409 SLOT_UNAVAILABLE`: The target slot is already booked.
   - `404 BOOKING_NOT_FOUND`: Booking does not exist or is unavailable to the caller.
 
