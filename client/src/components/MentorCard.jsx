@@ -23,6 +23,11 @@ export default function MentorCard({ mentor, onSelectMentor }) {
             {mentor.experience && (
               <span className="experience-chip">⏱ {mentor.experience}</span>
             )}
+            {mentor.rating && (
+              <span className="mentor-rating-chip" aria-label={`Rating: ${mentor.rating} stars`}>
+                ⭐ {Number(mentor.rating).toFixed(1)} ({mentor.reviewCount || mentor.reviews?.length || 0})
+              </span>
+            )}
           </div>
         </div>
       </div>

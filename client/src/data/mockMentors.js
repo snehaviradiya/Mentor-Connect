@@ -41,7 +41,47 @@ export const MOCK_MENTORS = [
     avatarInitials: 'AS',
     education: 'B.Tech in Computer Engineering (ADYPU Alum)',
     experience: '6+ years in industry',
-    mentoringTopics: ['Frontend Architecture', 'Technical Interview Prep', 'React Best Practices', 'Portfolio Reviews']
+    mentoringTopics: ['Frontend Architecture', 'Technical Interview Prep', 'React Best Practices', 'Portfolio Reviews'],
+    rating: 4.9,
+    reviewCount: 24,
+    reviews: [
+      {
+        id: 'rev-101',
+        studentName: 'Jiya Srivastava',
+        avatarInitials: 'JS',
+        rating: 5,
+        date: 'Oct 28, 2026',
+        sessionTopic: 'React 19 Server Components & State Management',
+        feedback: 'Aarav was exceptionally insightful! He reviewed our Capstone frontend repo, helped debug complex re-render issues, and demonstrated how to implement clean custom hooks. Highly recommended for any frontend engineer.',
+        verified: true,
+        tags: ['Code Review', 'Clean Explanations', 'Deep Technical Depth'],
+        helpfulCount: 14
+      },
+      {
+        id: 'rev-102',
+        studentName: 'Rohan Deshpande',
+        avatarInitials: 'RD',
+        rating: 5,
+        date: 'Oct 15, 2026',
+        sessionTopic: 'Frontend System Design & Performance Profiling',
+        feedback: 'Super clear walk-through of Lighthouse optimizations, web vitals, and bundle splitting. Aarav also shared interview prep tips that helped me understand real-world engineering expectations.',
+        verified: true,
+        tags: ['System Design', 'Performance Tuning', 'Interview Prep'],
+        helpfulCount: 9
+      },
+      {
+        id: 'rev-103',
+        studentName: 'Tanvi Kadam',
+        avatarInitials: 'TK',
+        rating: 4,
+        date: 'Sep 30, 2026',
+        sessionTopic: 'Portfolio Project Architecture & Next.js Routing',
+        feedback: 'Great actionable feedback on my GitHub portfolio and Next.js routing patterns. Very encouraging and structured mentor.',
+        verified: true,
+        tags: ['Portfolio Review', 'Next.js'],
+        helpfulCount: 5
+      }
+    ]
   },
   {
     id: 'mentor-2',
@@ -54,7 +94,35 @@ export const MOCK_MENTORS = [
     avatarInitials: 'PK',
     education: 'Ph.D. in Artificial Intelligence',
     experience: '8+ years in academia & research',
-    mentoringTopics: ['ML Capstone Guidance', 'Research Paper Writing', 'Dataset Preparation', 'Grad School Advice']
+    mentoringTopics: ['ML Capstone Guidance', 'Research Paper Writing', 'Dataset Preparation', 'Grad School Advice'],
+    rating: 5.0,
+    reviewCount: 31,
+    reviews: [
+      {
+        id: 'rev-201',
+        studentName: 'Aditya Patil',
+        avatarInitials: 'AP',
+        rating: 5,
+        date: 'Nov 02, 2026',
+        sessionTopic: 'Capstone LLM Agent Evaluation & Fine-Tuning',
+        feedback: 'Dr. Priya provided exceptional academic rigour to our research project. Her methodology for benchmark metrics and dataset validation transformed our capstone paper.',
+        verified: true,
+        tags: ['Research Rigor', 'NLP & LLMs', 'Clear Direction'],
+        helpfulCount: 18
+      },
+      {
+        id: 'rev-202',
+        studentName: 'Simran Sheikh',
+        avatarInitials: 'SS',
+        rating: 5,
+        date: 'Oct 19, 2026',
+        sessionTopic: 'Computer Vision Model Optimization',
+        feedback: 'Very patient guidance on resolving overfitting in our PyTorch training pipeline. She explained loss function adjustments with intuitive mathematical proofs.',
+        verified: true,
+        tags: ['PyTorch', 'Model Optimization', 'Academic Excellence'],
+        helpfulCount: 11
+      }
+    ]
   },
   {
     id: 'mentor-3',
@@ -67,7 +135,23 @@ export const MOCK_MENTORS = [
     avatarInitials: 'RD',
     education: 'M.Tech in Cloud Computing',
     experience: '9+ years in cloud infrastructure',
-    mentoringTopics: ['Cloud Architecture', 'Container Orchestration', 'Microservices Design', 'Cost Optimization']
+    mentoringTopics: ['Cloud Architecture', 'Container Orchestration', 'Microservices Design', 'Cost Optimization'],
+    rating: 4.8,
+    reviewCount: 19,
+    reviews: [
+      {
+        id: 'rev-301',
+        studentName: 'Varun Joshi',
+        avatarInitials: 'VJ',
+        rating: 5,
+        date: 'Oct 22, 2026',
+        sessionTopic: 'Kubernetes Cluster Deployment for Capstone',
+        feedback: 'Rohan helped our team configure ingress controllers and automated GitHub Actions deployments to AWS ECS. He made complex cloud concepts feel straightforward.',
+        verified: true,
+        tags: ['Kubernetes', 'AWS', 'CI/CD'],
+        helpfulCount: 12
+      }
+    ]
   },
   {
     id: 'mentor-4',
@@ -80,7 +164,23 @@ export const MOCK_MENTORS = [
     avatarInitials: 'AV',
     education: 'B.Des in Interaction Design',
     experience: '5+ years in product design',
-    mentoringTopics: ['Design Systems', 'UX Case Studies', 'Web Accessibility (a11y)', 'Design Crits']
+    mentoringTopics: ['Design Systems', 'UX Case Studies', 'Web Accessibility (a11y)', 'Design Crits'],
+    rating: 4.9,
+    reviewCount: 22,
+    reviews: [
+      {
+        id: 'rev-401',
+        studentName: 'Neha Rao',
+        avatarInitials: 'NR',
+        rating: 5,
+        date: 'Oct 29, 2026',
+        sessionTopic: 'Figma Auto-Layout & Design System Tokens',
+        feedback: 'Ananya tore apart our mobile UI screens with constructive, professional critique. Our usability score doubled after incorporating her advice on contrast and typographic hierarchy.',
+        verified: true,
+        tags: ['Design Systems', 'Accessibility', 'Figma Pro'],
+        helpfulCount: 15
+      }
+    ]
   },
   {
     id: 'mentor-5',
@@ -93,7 +193,23 @@ export const MOCK_MENTORS = [
     avatarInitials: 'VJ',
     education: 'B.E. in Information Technology',
     experience: '10+ years in backend engineering',
-    mentoringTopics: ['REST & GraphQL Design', 'Database Indexing & Schema', 'System Design Interviews', 'API Security']
+    mentoringTopics: ['REST & GraphQL Design', 'Database Indexing & Schema', 'System Design Interviews', 'API Security'],
+    rating: 4.9,
+    reviewCount: 27,
+    reviews: [
+      {
+        id: 'rev-501',
+        studentName: 'Devansh Shah',
+        avatarInitials: 'DS',
+        rating: 5,
+        date: 'Nov 01, 2026',
+        sessionTopic: 'PostgreSQL Concurrency & ACID Transactions',
+        feedback: 'Vikram explained row-level locking and optimistic concurrency with real-world examples. It saved our booking engine from race conditions.',
+        verified: true,
+        tags: ['Database Architecture', 'Concurrency', 'Backend'],
+        helpfulCount: 10
+      }
+    ]
   },
   {
     id: 'mentor-6',
@@ -106,7 +222,23 @@ export const MOCK_MENTORS = [
     avatarInitials: 'MS',
     education: 'MBA in Technology Management',
     experience: '7+ years in product leadership',
-    mentoringTopics: ['Capstone Pitch Decks', 'Product Roadmapping', 'User Interview Techniques', 'Metrics & KPIs']
+    mentoringTopics: ['Capstone Pitch Decks', 'Product Roadmapping', 'User Interview Techniques', 'Metrics & KPIs'],
+    rating: 4.7,
+    reviewCount: 16,
+    reviews: [
+      {
+        id: 'rev-601',
+        studentName: 'Pooja Nair',
+        avatarInitials: 'PN',
+        rating: 5,
+        date: 'Oct 25, 2026',
+        sessionTopic: 'Capstone MVP Feature Prioritization & Pitch Deck',
+        feedback: 'Meera helped us eliminate unnecessary features and sharpen our value proposition for the evaluation panel. Priceless advice!',
+        verified: true,
+        tags: ['Product Strategy', 'Pitch Deck', 'Feature Scoping'],
+        helpfulCount: 7
+      }
+    ]
   },
   {
     id: 'mentor-7',
@@ -119,7 +251,23 @@ export const MOCK_MENTORS = [
     avatarInitials: 'TP',
     education: 'B.Tech in Computer Science',
     experience: '4+ years in data engineering',
-    mentoringTopics: ['ETL Pipeline Construction', 'SQL Optimization', 'Big Data Essentials', 'Data Modeling']
+    mentoringTopics: ['ETL Pipeline Construction', 'SQL Optimization', 'Big Data Essentials', 'Data Modeling'],
+    rating: 4.8,
+    reviewCount: 14,
+    reviews: [
+      {
+        id: 'rev-701',
+        studentName: 'Amit Verma',
+        avatarInitials: 'AV',
+        rating: 5,
+        date: 'Oct 18, 2026',
+        sessionTopic: 'Spark Streaming & Kafka Event Integration',
+        feedback: 'Tanmay walked through pipeline architecture step by step and helped us resolve bottlenecking in our Spark streaming jobs.',
+        verified: true,
+        tags: ['Apache Spark', 'Data Engineering', 'Helpful'],
+        helpfulCount: 6
+      }
+    ]
   },
   {
     id: 'mentor-8',
@@ -132,6 +280,22 @@ export const MOCK_MENTORS = [
     avatarInitials: 'KN',
     education: 'B.E. in Computer Technology',
     experience: '5+ years in SRE / DevOps',
-    mentoringTopics: ['CI/CD Automation', 'Infrastructure as Code', 'Observability & Metrics', 'Linux Administration']
+    mentoringTopics: ['CI/CD Automation', 'Infrastructure as Code', 'Observability & Metrics', 'Linux Administration'],
+    rating: 4.9,
+    reviewCount: 18,
+    reviews: [
+      {
+        id: 'rev-801',
+        studentName: 'Kunal Shinde',
+        avatarInitials: 'KS',
+        rating: 5,
+        date: 'Oct 21, 2026',
+        sessionTopic: 'Grafana Dashboards & Prometheus Alerts',
+        feedback: 'Kavita is an incredible DevOps mentor. She set up Prometheus metrics alongside us and explained alerting thresholds thoroughly.',
+        verified: true,
+        tags: ['Observability', 'DevOps', 'Patient Guidance'],
+        helpfulCount: 8
+      }
+    ]
   }
 ];

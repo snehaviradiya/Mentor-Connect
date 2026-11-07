@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import MentorCard from './MentorCard.jsx';
+import ReviewModal from './ReviewModal.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 
 const DEFAULT_LEARNING_GOALS = [
@@ -31,16 +32,56 @@ const INITIAL_UPCOMING_SESSIONS = [
   },
 ];
 
+const INITIAL_COMPLETED_SESSIONS = [
+  {
+    id: 'comp-1',
+    mentorId: 'mentor-1',
+    mentorName: 'Aarav Sharma',
+    mentorRole: 'Senior Frontend Engineer @ Fintech Labs',
+    topic: 'React 19 Server Components & State Management',
+    date: 'Oct 28, 2026',
+    time: '10:00 AM – 11:00 AM IST',
+    status: 'Completed',
+    hasReviewed: true,
+    userRating: 5,
+  },
+  {
+    id: 'comp-2',
+    mentorId: 'mentor-2',
+    mentorName: 'Dr. Priya Kulkarni',
+    mentorRole: 'Assistant Professor & AI Researcher',
+    topic: 'Capstone LLM Agent Evaluation & Fine-Tuning',
+    date: 'Nov 02, 2026',
+    time: '02:00 PM – 03:00 PM IST',
+    status: 'Completed',
+    hasReviewed: false,
+  },
+  {
+    id: 'comp-3',
+    mentorId: 'mentor-5',
+    mentorName: 'Vikram Joshi',
+    mentorRole: 'Principal Backend Engineer',
+    topic: 'PostgreSQL Database Indexing & Concurrency',
+    date: 'Nov 04, 2026',
+    time: '05:00 PM – 06:00 PM IST',
+    status: 'Completed',
+    hasReviewed: false,
+  },
+];
+
 export default function StudentDashboard({
   mentors = [],
   onSelectMentor,
   onQuickBookMentor,
+  onAddReview,
 }) {
   const toast = useToast();
   const [goals, setGoals] = useState(DEFAULT_LEARNING_GOALS);
   const [newGoalText, setNewGoalText] = useState('');
   const [isAddingGoal, setIsAddingGoal] = useState(false);
   const [sessions, setSessions] = useState(INITIAL_UPCOMING_SESSIONS);
+  const [completedSessions, setCompletedSessions] = useState(INITIAL_COMPLETED_SESSIONS);
+  const [reviewingSession, setReviewingSession] = useState(null);
 
   // Student profile mock
   const student = {
@@ -113,6 +154,42 @@ export default function StudentDashboard({
       `Launching meeting room for "${session.topic}" with ${session.mentorName}...`,
       'Meeting Room'
     );
+  };
+
+  const handleOpenReview = (session) => {
+    const foundMentor =
+      mentors.find((m) => m.id === session.mentorId) ||
+      mentors.find((m) => m.name.toLowerCase() === session.mentorName.toLowerCase()) ||
+      {
+        id: session.mentorId || 'mentor-1',
+        name: session.mentorName,
+        category: 'Software Engineering',
+        avatarInitials: session.mentorName
+          .split(' ')
+          .map((p) => p[0])
+          .join('')
+          .slice(0, 2),
+      };
+    setReviewingSession({ ...session, mentor: foundMentor });
+  };
+
+  const handleReviewSubmitted = (newReview) => {
+    if (!reviewingSession) return;
+    const targetMentorId = reviewingSession.mentor?.id || reviewingSession.mentorId;
+
+    setCompletedSessions((prev) =>
+      prev.map((s) =>
+        s.id === reviewingSession.id
+          ? { ...s, hasReviewed: true, userRating: newReview.rating }
+          : s
+      )
+    );
+
+    if (onAddReview) {
+      onAddReview(targetMentorId, newReview);
+    }
+
+    setReviewingSession(null);
   };
 
   const handleQuickBook = () => {
@@ -266,7 +343,69 @@ export default function StudentDashboard({
             )}
           </section>
 
-          {/* 3. Learning Goals Section */}
+          {/* 3. Completed Sessions & Student Reviews */}
+          <section className="dashboard-panel completed-sessions-panel" aria-labelledby="completed-sessions-heading">
+            <div className="panel-header">
+              <div className="panel-title-group">
+                <span className="panel-icon" aria-hidden="true">⭐</span>
+                <h2 id="completed-sessions-heading" className="panel-title">
+                  Completed Sessions &amp; Reviews
+                </h2>
+              </div>
+              <span className="badge-count count-green">{completedSessions.length} Completed</span>
+            </div>
+
+            <p className="panel-caption">
+              Rate your mentors and leave verified feedback after completed consultations.
+            </p>
+
+            <div className="sessions-list">
+              {completedSessions.map((sess) => (
+                <article key={sess.id} className="session-card completed-card" aria-label={`Completed session with ${sess.mentorName}`}>
+                  <div className="session-main">
+                    <div className="session-header-row">
+                      <h3 className="session-topic">{sess.topic}</h3>
+                      <span className="session-status-badge badge-completed">✓ Completed</span>
+                    </div>
+                    <p className="session-mentor-info">
+                      Mentor: <strong>{sess.mentorName}</strong> • {sess.mentorRole}
+                    </p>
+                    <div className="session-meta-row">
+                      <span className="session-time-chip">
+                        📅 Completed on {sess.date}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="session-actions">
+                    {sess.hasReviewed ? (
+                      <div className="reviewed-indicator">
+                        <span className="reviewed-badge">✓ Reviewed ⭐ {sess.userRating || 5}/5</span>
+                        <button
+                          type="button"
+                          className="btn-view-profile-link"
+                          onClick={() => onSelectMentor && onSelectMentor(sess.mentorId)}
+                        >
+                          View on Profile →
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-rate-mentor-cta"
+                        onClick={() => handleOpenReview(sess)}
+                        aria-label={`Rate and review session with ${sess.mentorName}`}
+                      >
+                        ⭐ Rate &amp; Write Review
+                      </button>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          {/* 4. Learning Goals Section */}
           <section className="dashboard-panel" aria-labelledby="goals-heading">
             <div className="panel-header">
               <div className="panel-title-group">
@@ -429,6 +568,16 @@ export default function StudentDashboard({
           </section>
         </aside>
       </div>
+
+      {/* Interactive Review Modal for Completed Sessions */}
+      {reviewingSession && (
+        <ReviewModal
+          mentor={reviewingSession.mentor}
+          initialTopic={reviewingSession.topic}
+          onClose={() => setReviewingSession(null)}
+          onSubmitReview={handleReviewSubmitted}
+        />
+      )}
     </div>
   );
 }

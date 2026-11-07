@@ -75,6 +75,27 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
     );
   }, []);
 
+  // Add a verified review to a mentor
+  const handleAddReview = useCallback((mentorId, newReview) => {
+    setMentors((prevMentors) =>
+      prevMentors.map((m) => {
+        if (m.id !== mentorId) return m;
+        const currentReviews = m.reviews || [];
+        const updatedReviews = [newReview, ...currentReviews];
+        const avg = (
+          updatedReviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) /
+          updatedReviews.length
+        ).toFixed(1);
+        return {
+          ...m,
+          reviews: updatedReviews,
+          rating: Number(avg),
+          reviewCount: updatedReviews.length,
+        };
+      })
+    );
+  }, []);
+
   // Filter mentors based on search query and selected category
   const filteredMentors = useMemo(() => {
     const trimmed = searchQuery.trim().toLowerCase();
@@ -297,6 +318,7 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
             onQuickBookMentor={(mentor) => {
               setQuickBookingMentor(mentor);
             }}
+            onAddReview={handleAddReview}
           />
         ) : (
           <ProjectOverview />

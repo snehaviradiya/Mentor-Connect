@@ -1,14 +1,61 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import BookingModal from './BookingModal.jsx';
 import EditProfileModal from './EditProfileModal.jsx';
+import ReviewModal from './ReviewModal.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 
 export default function MentorProfile({ mentor, onBack, onUpdateMentor }) {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [helpfulVotes, setHelpfulVotes] = useState({});
   const [justUpdated, setJustUpdated] = useState(false);
   const bookingButtonRef = useRef(null);
   const toast = useToast();
+
+  const handleVoteHelpful = (reviewId) => {
+    setHelpfulVotes((prev) => {
+      const isVoted = prev[reviewId];
+      if (!isVoted) {
+        toast.info('Thank you! Marked as helpful.', 'Helpful Feedback');
+      }
+      return {
+        ...prev,
+        [reviewId]: !isVoted,
+      };
+    });
+  };
+
+  const reviewStats = useMemo(() => {
+    if (!mentor) {
+      return {
+        avg: '5.0',
+        count: 0,
+        distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+        recommendPct: 100,
+      };
+    }
+    const list = mentor.reviews || [];
+    const count = list.length;
+    if (count === 0) {
+      return {
+        avg: mentor.rating ? Number(mentor.rating).toFixed(1) : '5.0',
+        count: mentor.reviewCount || 0,
+        distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+        recommendPct: 100,
+      };
+    }
+    const sum = list.reduce((acc, r) => acc + (Number(r.rating) || 5), 0);
+    const avg = (sum / count).toFixed(1);
+    const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    list.forEach((r) => {
+      const star = Math.min(5, Math.max(1, Math.round(Number(r.rating) || 5)));
+      distribution[star] = (distribution[star] || 0) + 1;
+    });
+    const highRatings = (distribution[5] || 0) + (distribution[4] || 0);
+    const recommendPct = Math.round((highRatings / count) * 100);
+    return { avg, count, distribution, recommendPct };
+  }, [mentor?.reviews, mentor?.rating, mentor?.reviewCount]);
 
   // Graceful fallback for invalid or missing mentor
   if (!mentor) {
@@ -124,6 +171,11 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor }) {
             {mentor.experience && (
               <span className="experience-badge">⏱ {mentor.experience}</span>
             )}
+            {mentor.rating && (
+              <span className="profile-rating-badge" aria-label={`Rating: ${mentor.rating} out of 5 stars`}>
+                ⭐ {Number(mentor.rating).toFixed(1)} ({mentor.reviewCount || mentor.reviews?.length || 0} reviews)
+              </span>
+            )}
           </div>
           <h1 id="profile-heading" className="profile-name">
             {mentor.name}
@@ -180,6 +232,142 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor }) {
               </ul>
             </section>
           )}
+
+          {/* Verified Reviews & Student Testimonials */}
+          <section className="profile-section reviews-section" aria-labelledby="section-reviews">
+            <div className="reviews-section-header">
+              <div>
+                <h2 id="section-reviews" className="profile-section-title">
+                  Verified Reviews &amp; Testimonials
+                </h2>
+                <p className="reviews-section-subtitle">
+                  Ratings and feedback submitted by ADYPU students following completed consultations.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-write-review-cta"
+                onClick={() => setIsReviewModalOpen(true)}
+                id="write-review-btn"
+                aria-label={`Write a review for ${mentor.name}`}
+              >
+                ⭐ Rate &amp; Write Review
+              </button>
+            </div>
+
+            {/* Scorecard Summary */}
+            <div className="reviews-summary-card">
+              <div className="rating-overview-score">
+                <span className="big-rating-number">{reviewStats.avg}</span>
+                <div className="star-display" aria-label={`Rating: ${reviewStats.avg} out of 5 stars`}>
+                  ★★★★★
+                </div>
+                <span className="reviews-count-caption">
+                  Based on {reviewStats.count} verified student {reviewStats.count === 1 ? 'review' : 'reviews'}
+                </span>
+                <span className="recommendation-pill">
+                  👍 {reviewStats.recommendPct}% recommend this mentor
+                </span>
+              </div>
+
+              {/* Rating distribution breakdown bars */}
+              <div className="rating-distribution-bars" aria-label="Rating breakdown">
+                {[5, 4, 3, 2, 1].map((stars) => {
+                  const starCount = reviewStats.distribution[stars] || 0;
+                  const pct = reviewStats.count > 0 ? Math.round((starCount / reviewStats.count) * 100) : 0;
+                  return (
+                    <div key={stars} className="distribution-row">
+                      <span className="dist-stars-label">{stars} ★</span>
+                      <div className="dist-bar-bg" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100">
+                        <div className="dist-bar-fill" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="dist-count-label">{starCount}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Reviews List */}
+            {mentor.reviews && mentor.reviews.length > 0 ? (
+              <div className="reviews-list">
+                {mentor.reviews.map((rev) => {
+                  const hasVoted = Boolean(helpfulVotes[rev.id]);
+                  const currentHelpful = (rev.helpfulCount || 0) + (hasVoted ? 1 : 0);
+                  return (
+                    <article key={rev.id} className="testimonial-card" aria-label={`Review by ${rev.studentName}`}>
+                      <div className="testimonial-header">
+                        <div className="reviewer-info">
+                          <div className="reviewer-avatar" aria-hidden="true">
+                            {rev.avatarInitials || 'ST'}
+                          </div>
+                          <div>
+                            <div className="reviewer-name-row">
+                              <h3 className="reviewer-name">{rev.studentName}</h3>
+                              {rev.verified && (
+                                <span className="verified-badge" title="Verified session completion">
+                                  ✓ Verified Session
+                                </span>
+                              )}
+                            </div>
+                            <span className="reviewer-sub">🎓 ADYPU Student • {rev.date}</span>
+                          </div>
+                        </div>
+
+                        <div className="testimonial-rating">
+                          <span className="stars-gold">
+                            {'★'.repeat(Math.min(5, Math.max(1, Math.round(Number(rev.rating) || 5))))}
+                            {'☆'.repeat(5 - Math.min(5, Math.max(1, Math.round(Number(rev.rating) || 5))))}
+                          </span>
+                        </div>
+                      </div>
+
+                      {rev.sessionTopic && (
+                        <div className="session-topic-chip">
+                          <span className="chip-label">Topic:</span> {rev.sessionTopic}
+                        </div>
+                      )}
+
+                      <p className="testimonial-comment">{rev.feedback}</p>
+
+                      {rev.tags && rev.tags.length > 0 && (
+                        <div className="testimonial-tags">
+                          {rev.tags.map((t) => (
+                            <span key={t} className="review-highlight-tag">
+                              ✓ {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="testimonial-footer">
+                        <button
+                          type="button"
+                          className={`btn-helpful ${hasVoted ? 'helpful-active' : ''}`}
+                          onClick={() => handleVoteHelpful(rev.id)}
+                          aria-label={`Mark review as helpful. Currently ${currentHelpful} votes.`}
+                        >
+                          👍 Helpful ({currentHelpful})
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="empty-reviews-card">
+                <span className="empty-review-icon">⭐</span>
+                <p>No student reviews have been posted for {mentor.name} yet.</p>
+                <button
+                  type="button"
+                  className="btn-first-review"
+                  onClick={() => setIsReviewModalOpen(true)}
+                >
+                  Be the first to leave verified feedback
+                </button>
+              </div>
+            )}
+          </section>
         </div>
 
         {/* Right Column: Availability & Booking Action */}
@@ -264,6 +452,31 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor }) {
             setJustUpdated(true);
             if (onUpdateMentor) {
               onUpdateMentor(updated);
+            }
+          }}
+        />
+      )}
+
+      {/* Interactive Review Modal */}
+      {isReviewModalOpen && (
+        <ReviewModal
+          mentor={mentor}
+          onClose={() => setIsReviewModalOpen(false)}
+          onSubmitReview={(newReview) => {
+            const currentReviews = mentor.reviews || [];
+            const updatedReviews = [newReview, ...currentReviews];
+            const avg = (
+              updatedReviews.reduce((sum, r) => sum + (Number(r.rating) || 5), 0) /
+              updatedReviews.length
+            ).toFixed(1);
+            const updatedMentor = {
+              ...mentor,
+              reviews: updatedReviews,
+              rating: Number(avg),
+              reviewCount: updatedReviews.length,
+            };
+            if (onUpdateMentor) {
+              onUpdateMentor(updatedMentor);
             }
           }}
         />
