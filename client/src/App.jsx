@@ -9,6 +9,8 @@ import MentorCardSkeleton from './components/MentorCardSkeleton.jsx';
 import MentorProfile from './components/MentorProfile.jsx';
 import EmptyState from './components/EmptyState.jsx';
 import ProjectOverview from './components/ProjectOverview.jsx';
+import StudentDashboard from './components/StudentDashboard.jsx';
+import BookingModal from './components/BookingModal.jsx';
 import { ToastProvider, useToast } from './context/ToastContext.jsx';
 import { fetchMentors } from './services/api.js';
 
@@ -17,6 +19,7 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedMentorId, setSelectedMentorId] = useState(null);
+  const [quickBookingMentor, setQuickBookingMentor] = useState(null);
   const [mentors, setMentors] = useState(initialMentors);
   const listingsRef = useRef(null);
   const toast = useToast();
@@ -130,9 +133,8 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    if (tab === 'discover') {
-      setSelectedMentorId(null);
-    }
+    setSelectedMentorId(null);
+    setQuickBookingMentor(null);
   };
 
   const scrollToMentors = () => {
@@ -285,10 +287,29 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
               </aside>
             </section>
           )
+        ) : activeTab === 'dashboard' ? (
+          <StudentDashboard
+            mentors={mentors}
+            onSelectMentor={(id) => {
+              setSelectedMentorId(id);
+              setActiveTab('discover');
+            }}
+            onQuickBookMentor={(mentor) => {
+              setQuickBookingMentor(mentor);
+            }}
+          />
         ) : (
           <ProjectOverview />
         )}
       </main>
+
+      {/* Quick Booking Modal if initiated from dashboard */}
+      {quickBookingMentor && (
+        <BookingModal
+          mentor={quickBookingMentor}
+          onClose={() => setQuickBookingMentor(null)}
+        />
+      )}
 
       {/* Footer */}
       <footer className="app-footer">
