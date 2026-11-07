@@ -26,7 +26,7 @@ describe('Personalized Student Dashboard', () => {
 
     // 1. Welcome back message
     expect(
-      screen.getByRole('heading', { name: /Welcome back, Sneha Viradiya!/i })
+      screen.getByRole('heading', { name: /Welcome back, Jiya Srivastava!/i })
     ).toBeInTheDocument();
     expect(screen.getByText(/Student Capstone Portal/i)).toBeInTheDocument();
 
@@ -105,7 +105,7 @@ describe('Personalized Student Dashboard', () => {
     fireEvent.click(dashboardNavBtn);
 
     expect(
-      screen.getByRole('heading', { name: /Welcome back, Sneha Viradiya!/i })
+      screen.getByRole('heading', { name: /Welcome back, Jiya Srivastava!/i })
     ).toBeInTheDocument();
   });
 });

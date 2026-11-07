@@ -44,11 +44,11 @@ export default function StudentDashboard({
 
   // Student profile mock
   const student = {
-    name: 'Sneha Viradiya',
-    email: 'sneha@adypu.edu.in',
+    name: 'Jiya Srivastava',
+    email: 'jiya@adypu.edu.in',
     department: 'Computer Engineering',
     year: 'Final Year Capstone',
-    avatarInitials: 'SV',
+    avatarInitials: 'JS',
   };
 
   // Curated recommended mentors (top mentors by rating/expertise)
