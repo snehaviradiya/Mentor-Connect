@@ -10,6 +10,7 @@ import {
 import { getMeetingInfo } from '../controllers/meetingController.js';
 import { getSessionMessages, createSessionMessage } from '../controllers/chatController.js';
 import { getSessionResources, addSessionResource } from '../controllers/resourceController.js';
+import { submitSessionReview, getSessionReviews } from '../controllers/reviewController.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
@@ -25,6 +26,8 @@ router.get('/:id/messages', getSessionMessages);
 router.post('/:id/messages', createSessionMessage);
 router.get('/:id/resources', getSessionResources);
 router.post('/:id/resources', addSessionResource);
+router.get('/:id/reviews', getSessionReviews);
+router.post('/:id/reviews', submitSessionReview);
 router.patch('/:id/start', startSession);
 router.patch('/:id/complete', completeSession);
 router.patch('/:id/cancel', cancelSession);
