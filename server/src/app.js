@@ -4,6 +4,7 @@ import authRoutes from './routes/authRoutes.js';
 import mentorRoutes from './routes/mentorRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
+import sessionRoutes from './routes/sessionRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { createCorsMiddleware } from './middleware/cors.js';
 import { apiLimiter } from './middleware/rateLimit.js';
@@ -33,6 +34,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/mentors', mentorRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/sessions', sessionRoutes);
 
 // Catch-all 404 route for undefined endpoints
 app.use((req, res) => {

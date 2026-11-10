@@ -1,0 +1,24 @@
+import { Router } from 'express';
+import {
+  createSession,
+  listSessions,
+  getSessionById,
+  startSession,
+  completeSession,
+  cancelSession,
+} from '../controllers/sessionController.js';
+import { authenticate } from '../middleware/auth.js';
+
+const router = Router();
+
+// All session endpoints require authentication
+router.use(authenticate);
+
+router.post('/', createSession);
+router.get('/', listSessions);
+router.get('/:id', getSessionById);
+router.patch('/:id/start', startSession);
+router.patch('/:id/complete', completeSession);
+router.patch('/:id/cancel', cancelSession);
+
+export default router;

@@ -91,7 +91,84 @@ model Booking {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
+  session      Session?
+
   @@index([mentorId, sessionDate])
   @@index([studentEmail])
   @@map("bookings")
+}
+
+// ─── Session Lifecycle ────────────────────────────────────────────────────────
+// A mentorship session is derived from a confirmed booking and tracks the
+// real-time lifecycle: SCHEDULED → IN_PROGRESS → COMPLETED / CANCELLED.
+
+model Session {
+  id             String            @id @default(uuid())
+  bookingId      String            @unique
+  booking        Booking           @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  mentorId       String
+  studentId      String            // User.id of the student
+  status         String            @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+  meetingRoomId  String            @unique // Stable Jitsi room identifier
+  startedAt      DateTime?
+  completedAt    DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  messages       ChatMessage[]
+  resources      SessionResource[]
+  reviews        SessionReview[]
+
+  @@index([mentorId])
+  @@index([studentId])
+  @@index([status])
+  @@map("sessions")
+}
+
+// ─── Real-Time Chat Messages ──────────────────────────────────────────────────
+
+model ChatMessage {
+  id          String   @id @default(uuid())
+  sessionId   String
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  senderId    String   // User.id of the sender
+  content     String
+  messageType String   @default("TEXT") // TEXT, RESOURCE_LINK, SYSTEM
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
+}
+
+// ─── Session Resource Sharing ─────────────────────────────────────────────────
+
+model SessionResource {
+  id          String   @id @default(uuid())
+  sessionId   String
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sharedById  String   // User.id of who shared the resource
+  title       String
+  url         String
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId])
+  @@map("session_resources")
+}
+
+// ─── Session Reviews & Feedback ───────────────────────────────────────────────
+
+model SessionReview {
+  id         String   @id @default(uuid())
+  sessionId  String
+  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  reviewerId String   // User.id of the reviewer
+  rating     Int      // 1-5 star rating
+  comment    String?
+  tags       String?  // JSON array of tag strings
+  createdAt  DateTime @default(now())
+
+  @@unique([sessionId, reviewerId])
+  @@map("session_reviews")
 }
