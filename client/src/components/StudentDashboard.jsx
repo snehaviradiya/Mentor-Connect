@@ -74,6 +74,7 @@ export default function StudentDashboard({
   onSelectMentor,
   onQuickBookMentor,
   onAddReview,
+  onOpenWorkspace,
 }) {
   const toast = useToast();
   const [goals, setGoals] = useState(DEFAULT_LEARNING_GOALS);
@@ -320,6 +321,14 @@ export default function StudentDashboard({
                       </div>
                     </div>
                     <div className="session-actions">
+                      <button
+                        type="button"
+                        className="btn-workspace"
+                        onClick={() => onOpenWorkspace?.(sess)}
+                        aria-label={`Open workspace for ${sess.topic}`}
+                      >
+                        Open Workspace
+                      </button>
                       <button
                         type="button"
                         className="btn-join-session"
