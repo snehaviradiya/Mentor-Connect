@@ -438,3 +438,184 @@ Both endpoints use the authenticated user ID and linked profile from JWT middlew
 - **Response `200 OK`:** `data.mentor` contains `profile`, `summary` (`totalBookings`, `upcomingAppointments`, `pastAppointments`, `cancelledAppointments`), the corresponding appointment arrays, `availabilitySummary`, and `recentActivity` (up to five most recently created bookings).
 - Appointment entries contain student contact fields only for bookings assigned to the authenticated mentor. Availability summary reports total/bookable slots and weekly/dated slot counts.
 - **Errors:** `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`.
+
+---
+
+## 7. Mentorship Sessions Lifecycle (`/api/sessions`)
+
+Derived directly from confirmed booking records, sessions manage the complete live mentorship lifecycle: `SCHEDULED` → `IN_PROGRESS` → `COMPLETED` / `CANCELLED`. Access is strictly scoped to the assigned student, mentor, and administrators.
+
+### 7.1 Create / Derive Session
+Derives or creates a persistent mentorship session linked to an existing confirmed booking. Automatically provisions a stable meeting room identifier (`mentor-connect-session-{sessionId}`).
+
+- **URL:** `/api/sessions`
+- **Method:** `POST`
+- **Auth:** Bearer token required (assigned student, assigned mentor, or admin).
+- **Request Body:**
+```json
+{
+  "bookingId": "bk_11223344"
+}
+```
+- **Response `201 Created`:**
+```json
+{
+  "status": "success",
+  "message": "Mentorship session created successfully.",
+  "data": {
+    "session": {
+      "id": "sess_l84f93a1_k29p",
+      "bookingId": "bk_11223344",
+      "mentorId": "mentor-1",
+      "studentId": "usr-uuid-student",
+      "status": "SCHEDULED",
+      "meetingRoomId": "mentor-connect-session-sess_l84f93a1_k29p",
+      "startedAt": null,
+      "completedAt": null,
+      "cancelledAt": null,
+      "createdAt": "2026-11-10T20:45:00.000Z",
+      "booking": {
+        "id": "bk_11223344",
+        "studentName": "Sneha Viradiya",
+        "studentEmail": "sneha@adypu.edu.in",
+        "sessionDate": "2026-11-20",
+        "timeSlot": "10:00 AM – 11:00 AM IST",
+        "sessionTopic": "System Architecture Review",
+        "status": "confirmed",
+        "mentorName": "Aarav Sharma",
+        "mentorTitle": "Senior Frontend Engineer @ Fintech Labs"
+      }
+    }
+  }
+}
+```
+- **Error Codes:**
+  - `400 INVALID_BOOKING_STATUS`: Booking is cancelled.
+  - `403 FORBIDDEN`: Caller is not assigned to the booking.
+  - `404 BOOKING_NOT_FOUND`: Booking does not exist.
+  - `409 SESSION_ALREADY_EXISTS`: A session is already linked to this booking.
+
+### 7.2 List User Sessions
+- **URL:** `/api/sessions`
+- **Method:** `GET`
+- **Query Parameters:** `status` (optional: `SCHEDULED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`)
+- **Auth:** Bearer token required. Returns only the authenticated user's sessions.
+
+### 7.3 Get Session Details
+- **URL:** `/api/sessions/:id`
+- **Method:** `GET`
+- **Auth:** Bearer token required.
+
+### 7.4 Session Lifecycle Status Transitions
+- `PATCH /api/sessions/:id/start`: Transitions session to `IN_PROGRESS` and records `startedAt`.
+- `PATCH /api/sessions/:id/complete`: Transitions session to `COMPLETED`, records `completedAt`, and sets linked booking status to `completed`.
+- `PATCH /api/sessions/:id/cancel`: Transitions session to `CANCELLED`, records `cancelledAt`, and releases linked booking status to `cancelled`.
+
+---
+
+## 8. Embedded Video Meeting Integration (`/api/sessions/:id/meeting`)
+
+Integrates Jitsi Meet video calls natively into the mentorship session workspace.
+
+### 8.1 Retrieve Meeting Details & Room Configuration
+- **URL:** `/api/sessions/:id/meeting`
+- **Method:** `GET`
+- **Auth:** Bearer token required (assigned student, assigned mentor, or admin only).
+- **Response `200 OK`:**
+```json
+{
+  "status": "success",
+  "data": {
+    "meeting": {
+      "sessionId": "sess_l84f93a1_k29p",
+      "bookingId": "bk_11223344",
+      "domain": "meet.jit.si",
+      "roomName": "mentor-connect-session-sess_l84f93a1_k29p",
+      "meetingUrl": "https://meet.jit.si/mentor-connect-session-sess_l84f93a1_k29p",
+      "sessionStatus": "SCHEDULED",
+      "canJoin": true,
+      "statusNotice": null,
+      "userRole": "moderator",
+      "participant": {
+        "id": "usr-mentor-id",
+        "name": "Aarav Sharma",
+        "email": "aarav.sharma@mentorconnect.adypu.edu.in",
+        "avatar": null
+      },
+      "config": {
+        "subject": "System Architecture Review",
+        "startWithAudioMuted": false,
+        "startWithVideoMuted": false,
+        "prejoinPageEnabled": true
+      }
+    }
+  }
+}
+```
+- **Lifecycle Access Rule:** If the session is `COMPLETED` or `CANCELLED`, `canJoin` returns `false` with a descriptive `statusNotice` preventing post-session intrusions.
+- **Environment Configuration:**
+  - `JITSI_DOMAIN`: Domain of the Jitsi instance (defaults to `meet.jit.si`).
+  - `JITSI_APP_ID`: (Optional) 8x8 JaaS application ID for enterprise hosting.
+  - `JITSI_JWT_SECRET`: (Optional) JaaS JWT secret for signed meeting tokens.
+
+---
+
+## 9. Real-Time Session Chat (Socket.IO & REST)
+
+Provides real-time and persistent bidirectional messaging during mentorship consultations.
+
+### 9.1 WebSocket Handshake & Events
+- **Transport:** WebSocket / Polling via Socket.IO.
+- **Handshake Authentication:** Must supply JWT token in `auth.token` or `headers.authorization`.
+- **Client → Server Events:**
+  - `join_session`: `{ sessionId: string }` — Verifies session membership, joins room `session:{id}`.
+  - `send_message`: `{ sessionId: string, content: string, messageType?: 'TEXT' | 'RESOURCE_LINK' }` — Persists to DB and broadcasts.
+  - `leave_session`: `{ sessionId: string }` — Leaves room.
+- **Server → Client Events:**
+  - `new_message`: Emitted to session room upon new message creation.
+  - `user_joined` / `user_left`: Presence indicators.
+
+### 9.2 REST Message History
+- **URL:** `/api/sessions/:id/messages`
+- **Method:** `GET`
+- **Query Parameters:** `page` (default 1), `limit` (default 50, max 100).
+- **Response `200 OK`:** Returns paginated messages ordered by `createdAt: asc`.
+
+### 9.3 REST Send Message
+- **URL:** `/api/sessions/:id/messages`
+- **Method:** `POST`
+- **Request Body:** `{ "content": "Hello mentor!", "messageType": "TEXT" }`
+- **Response `201 Created`:** Persists message and broadcasts event to any connected WebSocket clients.
+
+---
+
+## 10. Session Resources & Verified Reviews
+
+### 10.1 Session Resources
+- **`GET /api/sessions/:id/resources`**: Retrieves links and materials shared in the session.
+- **`POST /api/sessions/:id/resources`**: Shares a new resource link (`title`, `url`, optional `description`).
+
+### 10.2 Verified Completed-Session Reviews
+Enforces that reviews are tied to genuine, completed consultations:
+- **URL:** `/api/sessions/:id/reviews`
+- **Method:** `POST`
+- **Auth:** Assigned student only.
+- **Enforcements:**
+  - Session status must be `COMPLETED` (returns `400 SESSION_NOT_COMPLETED` otherwise).
+  - Only one review allowed per student per session (returns `409 REVIEW_ALREADY_EXISTS` on duplicates).
+  - Rating must be an integer between 1 and 5.
+- **Request Body:**
+```json
+{
+  "rating": 5,
+  "comment": "Exceptional guidance on database indexing and query optimization.",
+  "tags": ["Clear Explanations", "System Design Depth"]
+}
+```
+
+### 10.3 Mentor Public Verified Reviews
+- **URL:** `/api/mentors/:id/reviews`
+- **Method:** `GET`
+- **Auth:** Public.
+- **Response `200 OK`:** Returns verified reviews and calculated average rating across all completed sessions.
+
