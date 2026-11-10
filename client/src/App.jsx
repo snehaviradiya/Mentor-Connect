@@ -10,6 +10,7 @@ import MentorProfile from './components/MentorProfile.jsx';
 import EmptyState from './components/EmptyState.jsx';
 import ProjectOverview from './components/ProjectOverview.jsx';
 import StudentDashboard from './components/StudentDashboard.jsx';
+import ResourceLibrary from './components/ResourceLibrary.jsx';
 import BookingModal from './components/BookingModal.jsx';
 import { ToastProvider, useToast } from './context/ToastContext.jsx';
 import { fetchMentors } from './services/api.js';
@@ -319,6 +320,13 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
               setQuickBookingMentor(mentor);
             }}
             onAddReview={handleAddReview}
+          />
+        ) : activeTab === 'resources' ? (
+          <ResourceLibrary
+            onSelectMentor={(id) => {
+              setSelectedMentorId(id);
+              setActiveTab('discover');
+            }}
           />
         ) : (
           <ProjectOverview />

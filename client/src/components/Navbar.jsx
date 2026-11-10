@@ -56,6 +56,15 @@ export default function Navbar({ activeTab, onTabChange }) {
           </button>
           <button
             type="button"
+            className={`nav-link${activeTab === 'resources' ? ' active' : ''}`}
+            onClick={() => onTabChange('resources')}
+            aria-current={activeTab === 'resources' ? 'page' : undefined}
+            id="nav-resources"
+          >
+            Resource Library
+          </button>
+          <button
+            type="button"
             className={`nav-link${activeTab === 'about' ? ' active' : ''}`}
             onClick={() => onTabChange('about')}
             aria-current={activeTab === 'about' ? 'page' : undefined}
