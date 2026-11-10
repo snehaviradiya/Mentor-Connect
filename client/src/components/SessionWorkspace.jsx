@@ -1,5 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useToast } from '../context/ToastContext.jsx';
+import {
+  fetchMeetingInfo,
+  fetchSessionMessages,
+  sendSessionMessage,
+  fetchSessionResources,
+  shareSessionResource,
+  completeSessionApi,
+} from '../services/api.js';
 
 const createDefaultWorkspace = () => ({
   agenda: [
@@ -102,6 +110,50 @@ export default function SessionWorkspace({ session, onBack }) {
   const [resourceUrl, setResourceUrl] = useState('');
   const [actionItemText, setActionItemText] = useState('');
 
+  // Live Backend Integration State
+  const [meeting, setMeeting] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newChatText, setNewChatText] = useState('');
+  const [sessionStatus, setSessionStatus] = useState(session.status || 'Confirmed');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const chatBottomRef = useRef(null);
+
+  // Fetch meeting details and messages if session has an active ID
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadLiveData() {
+      try {
+        const meetingRes = await fetchMeetingInfo(session.id).catch(() => null);
+        if (isMounted && meetingRes?.data?.meeting) {
+          setMeeting(meetingRes.data.meeting);
+          if (meetingRes.data.meeting.sessionStatus) {
+            setSessionStatus(meetingRes.data.meeting.sessionStatus);
+          }
+        }
+      } catch {
+        // Fallback gracefully for mock or offline sessions
+      }
+
+      try {
+        const messagesRes = await fetchSessionMessages(session.id).catch(() => null);
+        if (isMounted && messagesRes?.data?.messages) {
+          setMessages(messagesRes.data.messages);
+        }
+      } catch {
+        // Fallback gracefully
+      }
+    }
+
+    if (session.id) {
+      loadLiveData();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [session.id]);
+
   useEffect(() => {
     try {
       window.localStorage.setItem(
@@ -118,7 +170,7 @@ export default function SessionWorkspace({ session, onBack }) {
     setWorkspace((current) => ({ ...current, [key]: update(current[key]) }));
   };
 
-  const handleAddResource = (event) => {
+  const handleAddResource = async (event) => {
     event.preventDefault();
     const title = resourceTitle.trim();
     let url;
@@ -139,8 +191,57 @@ export default function SessionWorkspace({ session, onBack }) {
       ...current,
       resources: [...current.resources, { id: `${Date.now()}`, title, url: url.href }],
     }));
+
+    // Attempt live backend synchronization
+    try {
+      await shareSessionResource(session.id, { title, url: url.href }).catch(() => null);
+    } catch {
+      // Local storage already updated
+    }
+
     setResourceTitle('');
     setResourceUrl('');
+  };
+
+  const handleSendMessage = async (event) => {
+    event.preventDefault();
+    const text = newChatText.trim();
+    if (!text) return;
+
+    setIsSendingMessage(true);
+    const localMsg = {
+      id: `local-${Date.now()}`,
+      content: text,
+      senderName: 'You',
+      createdAt: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, localMsg]);
+    setNewChatText('');
+
+    try {
+      const res = await sendSessionMessage(session.id, text).catch(() => null);
+      if (res?.data?.message) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === localMsg.id ? res.data.message : m))
+        );
+      }
+    } catch {
+      // Message kept locally in conversation
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
+  const handleCompleteSession = async () => {
+    try {
+      await completeSessionApi(session.id);
+      setSessionStatus('COMPLETED');
+      toast.success('Mentorship session marked as completed!', 'Session Completed');
+    } catch (err) {
+      toast.info('Session marked as completed in this workspace.', 'Session Completed');
+      setSessionStatus('COMPLETED');
+    }
   };
 
   const handleAddActionItem = (event) => {
@@ -170,7 +271,29 @@ export default function SessionWorkspace({ session, onBack }) {
             {session.date} at {session.time}
           </p>
         </div>
-        <span className="workspace-status">{session.status}</span>
+        <div className="workspace-hero-controls">
+          {meeting?.canJoin !== false && (
+            <a
+              href={meeting?.meetingUrl || `https://meet.jit.si/mentor-connect-session-${session.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="workspace-video-call-button"
+              title="Launch embedded video call via Jitsi Meet"
+            >
+              🎥 Join Video Call
+            </a>
+          )}
+          {sessionStatus !== 'COMPLETED' && (
+            <button
+              type="button"
+              className="workspace-complete-session-button"
+              onClick={handleCompleteSession}
+            >
+              ✓ Mark Complete
+            </button>
+          )}
+          <span className="workspace-status">{sessionStatus}</span>
+        </div>
       </header>
 
       <div className="workspace-grid">
@@ -323,6 +446,40 @@ export default function SessionWorkspace({ session, onBack }) {
               placeholder="Add a follow-up task"
             />
             <button type="submit" disabled={!actionItemText.trim()}>Add</button>
+          </form>
+        </section>
+
+        <section className="workspace-panel workspace-chat-panel" aria-label="Session chat">
+          <div className="workspace-panel-heading">
+            <span aria-hidden="true">💬</span>
+            <h2>Session chat</h2>
+            <span className="workspace-item-count">{messages.length}</span>
+          </div>
+          <div className="workspace-chat-container">
+            {messages.length > 0 ? (
+              <ul className="workspace-chat-messages">
+                {messages.map((msg) => (
+                  <li key={msg.id} className="workspace-chat-message-item">
+                    <strong className="workspace-chat-sender">{msg.senderName || 'Participant'}: </strong>
+                    <span className="workspace-chat-text">{msg.content}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="workspace-empty-copy">No messages yet. Send a note to your mentor!</p>
+            )}
+          </div>
+          <form className="workspace-inline-form" onSubmit={handleSendMessage}>
+            <label className="sr-only" htmlFor="workspace-chat-input">Send message</label>
+            <input
+              id="workspace-chat-input"
+              value={newChatText}
+              onChange={(event) => setNewChatText(event.target.value)}
+              placeholder="Type a message to your mentor..."
+            />
+            <button type="submit" disabled={!newChatText.trim() || isSendingMessage}>
+              {isSendingMessage ? 'Sending...' : 'Send'}
+            </button>
           </form>
         </section>
       </div>
