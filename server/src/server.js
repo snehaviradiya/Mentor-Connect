@@ -1,9 +1,14 @@
+import http from 'http';
 import app from './app.js';
 import prisma from './prisma.js';
+import { initChatSocket } from './socket/chatSocket.js';
 
 const PORT = process.env.PORT || 5000;
 
-const server = app.listen(PORT, () => {
+const httpServer = http.createServer(app);
+const io = initChatSocket(httpServer);
+
+const server = httpServer.listen(PORT, () => {
   console.log(`Mentor Connect server running on port ${PORT}`);
 });
 
@@ -25,4 +30,5 @@ process.on('unhandledRejection', (err) => {
   console.error('Unhandled Promise Rejection:', err);
 });
 
+export { io };
 export default server;
