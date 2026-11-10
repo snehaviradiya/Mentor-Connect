@@ -11,6 +11,7 @@ import EmptyState from './components/EmptyState.jsx';
 import ProjectOverview from './components/ProjectOverview.jsx';
 import StudentDashboard from './components/StudentDashboard.jsx';
 import ResourceLibrary from './components/ResourceLibrary.jsx';
+import SessionWorkspace from './components/SessionWorkspace.jsx';
 import BookingModal from './components/BookingModal.jsx';
 import { ToastProvider, useToast } from './context/ToastContext.jsx';
 import { fetchMentors } from './services/api.js';
@@ -21,6 +22,7 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedMentorId, setSelectedMentorId] = useState(null);
   const [quickBookingMentor, setQuickBookingMentor] = useState(null);
+  const [workspaceSession, setWorkspaceSession] = useState(null);
   const [mentors, setMentors] = useState(initialMentors);
   const listingsRef = useRef(null);
   const toast = useToast();
@@ -157,6 +159,7 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
     setActiveTab(tab);
     setSelectedMentorId(null);
     setQuickBookingMentor(null);
+    setWorkspaceSession(null);
   };
 
   const scrollToMentors = () => {
@@ -166,7 +169,10 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
   return (
     <div className="app-container">
       {/* Header and Navigation */}
-      <Navbar activeTab={activeTab} onTabChange={handleTabChange} />
+      <Navbar
+        activeTab={activeTab === 'workspace' ? 'dashboard' : activeTab}
+        onTabChange={handleTabChange}
+      />
 
       <main className="main-content">
         {activeTab === 'discover' ? (
@@ -312,6 +318,10 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
         ) : activeTab === 'dashboard' ? (
           <StudentDashboard
             mentors={mentors}
+            onOpenWorkspace={(session) => {
+              setWorkspaceSession(session);
+              setActiveTab('workspace');
+            }}
             onSelectMentor={(id) => {
               setSelectedMentorId(id);
               setActiveTab('discover');
@@ -320,6 +330,15 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
               setQuickBookingMentor(mentor);
             }}
             onAddReview={handleAddReview}
+          />
+        ) : activeTab === 'workspace' && workspaceSession ? (
+          <SessionWorkspace
+            key={workspaceSession.id}
+            session={workspaceSession}
+            onBack={() => {
+              setWorkspaceSession(null);
+              setActiveTab('dashboard');
+            }}
           />
         ) : activeTab === 'resources' ? (
           <ResourceLibrary
