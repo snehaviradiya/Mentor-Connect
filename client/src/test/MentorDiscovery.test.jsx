@@ -69,4 +69,26 @@ describe('Mentor Discovery', () => {
     expect(searchInput.value).toBe('');
     expect(container.querySelector('.results-count')).toHaveTextContent('Showing 8 of 8 mentors');
   });
+
+  it('explores weekly availability and filters mentor results by a selected time', () => {
+    const { container } = render(<App />);
+
+    expect(
+      screen.getByRole('heading', { name: /Explore mentor availability/i })
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Thursday, 4 PM — 1 mentor available' })
+    );
+
+    expect(container.querySelector('.results-count')).toHaveTextContent('Showing 1 of 8 mentors');
+    expect(screen.getByRole('heading', { name: 'Aarav Sharma', level: 3 })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Dr. Priya Kulkarni', level: 3 })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Thursday at 4 PM · 1 mentor available');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear time' }));
+    expect(container.querySelector('.results-count')).toHaveTextContent('Showing 8 of 8 mentors');
+  });
 });

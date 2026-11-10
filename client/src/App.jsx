@@ -12,6 +12,7 @@ import ProjectOverview from './components/ProjectOverview.jsx';
 import StudentDashboard from './components/StudentDashboard.jsx';
 import ResourceLibrary from './components/ResourceLibrary.jsx';
 import SessionWorkspace from './components/SessionWorkspace.jsx';
+import AvailabilityExplorer from './components/AvailabilityExplorer.jsx';
 import BookingModal from './components/BookingModal.jsx';
 import { ToastProvider, useToast } from './context/ToastContext.jsx';
 import { fetchMentors } from './services/api.js';
@@ -23,6 +24,7 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
   const [selectedMentorId, setSelectedMentorId] = useState(null);
   const [quickBookingMentor, setQuickBookingMentor] = useState(null);
   const [workspaceSession, setWorkspaceSession] = useState(null);
+  const [selectedAvailability, setSelectedAvailability] = useState(null);
   const [mentors, setMentors] = useState(initialMentors);
   const listingsRef = useRef(null);
   const toast = useToast();
@@ -124,11 +126,18 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
     });
   }, [mentors, searchQuery, selectedCategory]);
 
-  const isFiltered = searchQuery.trim() !== '' || selectedCategory !== 'All';
+  const availabilityMentors = filteredMentors;
+  const visibleMentors = selectedAvailability
+    ? availabilityMentors.filter((mentor) =>
+        selectedAvailability.mentors.some((availableMentor) => availableMentor.id === mentor.id)
+      )
+    : availabilityMentors;
+  const isFiltered = searchQuery.trim() !== '' || selectedCategory !== 'All' || selectedAvailability;
 
   const handleResetFilters = () => {
     setSearchQuery('');
     setSelectedCategory('All');
+    setSelectedAvailability(null);
     toast.info('Search & domain filters reset. Showing all available mentors.', 'Filters Cleared');
   };
 
@@ -227,7 +236,7 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
                     'Loading mentors...'
                   ) : (
                     <>
-                      Showing <strong>{filteredMentors.length}</strong> of{' '}
+                      Showing <strong>{visibleMentors.length}</strong> of{' '}
                       {mentors.length} mentors
                       {selectedCategory !== 'All' && (
                         <span className="active-filter-badge">
@@ -237,6 +246,13 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
                       {searchQuery.trim() && (
                         <span className="active-filter-badge">
                           Query: &ldquo;{searchQuery.trim()}&rdquo;
+                        </span>
+                      )}
+                      {selectedAvailability && (
+                        <span className="active-filter-badge">
+                          Time: {selectedAvailability.day} at{' '}
+                          {selectedAvailability.hour % 12 || 12}{' '}
+                          {selectedAvailability.hour < 12 ? 'AM' : 'PM'}
                         </span>
                       )}
                     </>
@@ -268,6 +284,17 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
                 </div>
               </div>
 
+              <AvailabilityExplorer
+                mentors={availabilityMentors}
+                selectedSlot={selectedAvailability}
+                onSelectSlot={setSelectedAvailability}
+                onClearSlot={() => setSelectedAvailability(null)}
+                onShowMentors={() => listingsRef.current?.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'start',
+                })}
+              />
+
               {/* Mentor Cards Grid, Skeleton Cards while loading, or Empty State */}
               {isLoading ? (
                 /* Skeleton cards while mentor data loads instead of a blank screen */
@@ -282,13 +309,13 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
                     <MentorCardSkeleton key={`skeleton-${idx}`} />
                   ))}
                 </div>
-              ) : filteredMentors.length > 0 ? (
+              ) : visibleMentors.length > 0 ? (
                 <div
                   className="mentors-grid"
                   role="region"
                   aria-label="Mentor search results"
                 >
-                  {filteredMentors.map((mentor) => (
+                  {visibleMentors.map((mentor) => (
                     <MentorCard
                       key={mentor.id}
                       mentor={mentor}

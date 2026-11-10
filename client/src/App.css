@@ -335,6 +335,219 @@
   animation: riseIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
 }
 
+.availability-explorer {
+  margin: 0 0 1.5rem;
+  padding: 1.4rem;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(ellipse at 92% 0%, rgba(99, 102, 241, 0.11), transparent 34%),
+    linear-gradient(145deg, rgba(19, 22, 34, 0.96), rgba(13, 15, 23, 0.98));
+  box-shadow: var(--shadow-md);
+}
+
+.availability-explorer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.availability-explorer-eyebrow {
+  color: #a5b4fc;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.availability-explorer-header h2 {
+  margin: 0.25rem 0;
+  color: var(--text-main);
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.availability-explorer-header p,
+.availability-explorer-footer p {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.availability-demo-label {
+  flex-shrink: 0;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.availability-grid-scroll {
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.availability-grid {
+  display: grid;
+  grid-template-columns: 4.1rem repeat(7, minmax(2.6rem, 1fr));
+  min-width: 560px;
+  gap: 0.3rem;
+}
+
+.availability-grid-corner,
+.availability-day-heading,
+.availability-time-heading {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.67rem;
+  font-weight: 700;
+}
+
+.availability-grid-corner,
+.availability-day-heading {
+  justify-content: center;
+  min-height: 1.8rem;
+}
+
+.availability-day-heading {
+  color: #cbd5e1;
+}
+
+.availability-grid-row {
+  display: contents;
+}
+
+.availability-time-heading {
+  justify-content: flex-end;
+  padding-right: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.availability-grid-cell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 1.85rem;
+}
+
+.availability-cell {
+  width: 100%;
+  max-width: 3.1rem;
+  height: 1.55rem;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  background: rgba(255, 255, 255, 0.035);
+  color: transparent;
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
+}
+
+.availability-cell:not(:disabled) {
+  color: #e0e7ff;
+}
+
+.availability-cell:not(:disabled):hover {
+  transform: scale(1.08);
+  filter: brightness(1.2);
+}
+
+.availability-cell:focus-visible,
+.availability-selection button:focus-visible {
+  outline: 2px solid #a5b4fc;
+  outline-offset: 2px;
+}
+
+.availability-cell:disabled {
+  cursor: default;
+}
+
+.availability-cell-level-1 {
+  border-color: rgba(99, 102, 241, 0.24);
+  background: rgba(99, 102, 241, 0.28);
+}
+
+.availability-cell-level-2 {
+  border-color: rgba(99, 102, 241, 0.36);
+  background: rgba(99, 102, 241, 0.46);
+}
+
+.availability-cell-level-3 {
+  border-color: rgba(139, 92, 246, 0.52);
+  background: rgba(139, 92, 246, 0.62);
+}
+
+.availability-cell.is-selected {
+  border-color: #c4b5fd;
+  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.3), 0 0 16px rgba(99, 102, 241, 0.3);
+}
+
+.availability-explorer-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.8rem;
+}
+
+.availability-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.66rem;
+}
+
+.availability-legend-swatch {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.65rem;
+  border-radius: 0.2rem;
+}
+
+.availability-explorer-footer p {
+  text-align: right;
+  font-size: 0.68rem;
+}
+
+.availability-selection {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(129, 140, 248, 0.25);
+  border-radius: var(--radius-sm);
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.availability-selection span {
+  flex: 1;
+}
+
+.availability-selection button {
+  border: 0;
+  background: transparent;
+  color: #c7d2fe;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.availability-selection button:hover {
+  color: #ffffff;
+}
+
+.availability-selection .availability-clear-button {
+  color: var(--text-muted);
+}
+
 .search-bar-container {
   display: flex;
   flex-direction: column;
@@ -2546,6 +2759,28 @@
 
   .mentor-card {
     padding: 1.25rem;
+  }
+
+  .availability-explorer {
+    padding: 1rem;
+  }
+
+  .availability-explorer-header {
+    flex-direction: column;
+  }
+
+  .availability-explorer-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .availability-explorer-footer p {
+    text-align: left;
+  }
+
+  .availability-selection {
+    align-items: flex-start;
+    flex-wrap: wrap;
   }
 }
 
