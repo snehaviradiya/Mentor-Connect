@@ -9,7 +9,7 @@ const DEFAULT_LEARNING_GOALS = [
   { id: 'g3', title: 'Prepare for Tech Architecture & System Design Interviews', progress: 35, completed: false, category: 'Career Growth' },
 ];
 
-const INITIAL_UPCOMING_SESSIONS = [
+export const INITIAL_UPCOMING_SESSIONS = [
   {
     id: 'sess-1',
     mentorName: 'Aarav Sharma',
