@@ -1,4 +1,9 @@
-export default function SearchBar({ searchQuery, onSearchChange, onClearSearch }) {
+export default function SearchBar({
+  searchQuery,
+  onSearchChange,
+  onClearSearch,
+  placeholder = 'Search by name, expertise, or keywords — e.g. React, AI, System Design…',
+}) {
   return (
     <div className="search-bar-container">
       <label htmlFor="mentor-search" className="search-label">
@@ -15,7 +20,7 @@ export default function SearchBar({ searchQuery, onSearchChange, onClearSearch }
           id="mentor-search"
           type="search"
           className="search-input"
-          placeholder="Search by name, expertise, or keywords — e.g. React, AI, System Design…"
+          placeholder={placeholder}
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           aria-describedby="search-hint"

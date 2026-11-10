@@ -4,6 +4,24 @@ import App from '../App.jsx';
 import { MOCK_MENTORS } from '../data/mockMentors.js';
 
 describe('Mentor Discovery', () => {
+  it('shows the mentorship journey home with live mentor search and recommendations', () => {
+    render(<App />);
+
+    expect(screen.getByRole('heading', { name: 'Build something extraordinary.' })).toBeInTheDocument();
+    expect(screen.getByText('02')).toBeInTheDocument();
+    expect(screen.getByText('Expert mentors')).toBeInTheDocument();
+    expect(screen.getByText('Your upcoming sessions')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /View profile of recommended mentor Aarav Sharma/i })
+    ).toBeInTheDocument();
+
+    const searchInput = screen.getByLabelText(/Search Mentors/i);
+    fireEvent.change(searchInput, { target: { value: 'Python' } });
+    expect(
+      screen.getByRole('button', { name: /View profile of recommended mentor Dr\. Priya Kulkarni/i })
+    ).toBeInTheDocument();
+  });
+
   it('renders all mentor cards from fixture dataset on initial load', () => {
     const { container } = render(<App />);
 

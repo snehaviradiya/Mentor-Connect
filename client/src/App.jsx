@@ -2,17 +2,17 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import './App.css';
 import { MOCK_MENTORS, MOCK_CATEGORIES } from './data/mockMentors.js';
 import Navbar from './components/Navbar.jsx';
-import SearchBar from './components/SearchBar.jsx';
 import CategoryFilter from './components/CategoryFilter.jsx';
 import MentorCard from './components/MentorCard.jsx';
 import MentorCardSkeleton from './components/MentorCardSkeleton.jsx';
 import MentorProfile from './components/MentorProfile.jsx';
 import EmptyState from './components/EmptyState.jsx';
 import ProjectOverview from './components/ProjectOverview.jsx';
-import StudentDashboard from './components/StudentDashboard.jsx';
+import StudentDashboard, { INITIAL_UPCOMING_SESSIONS } from './components/StudentDashboard.jsx';
 import ResourceLibrary from './components/ResourceLibrary.jsx';
 import SessionWorkspace from './components/SessionWorkspace.jsx';
 import AvailabilityExplorer from './components/AvailabilityExplorer.jsx';
+import MentorshipHome from './components/MentorshipHome.jsx';
 import BookingModal from './components/BookingModal.jsx';
 import { ToastProvider, useToast } from './context/ToastContext.jsx';
 import { fetchMentors } from './services/api.js';
@@ -121,8 +121,11 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
       const expertiseMatch = Array.isArray(mentor.expertise)
         ? mentor.expertise.some((skill) => skill.toLowerCase().includes(trimmed))
         : false;
+      const topicMatch = Array.isArray(mentor.mentoringTopics)
+        ? mentor.mentoringTopics.some((topic) => topic.toLowerCase().includes(trimmed))
+        : false;
 
-      return nameMatch || titleMatch || bioMatch || expertiseMatch;
+      return nameMatch || titleMatch || bioMatch || expertiseMatch || topicMatch;
     });
   }, [mentors, searchQuery, selectedCategory]);
 
@@ -194,34 +197,21 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
             />
           ) : (
             /* Mentor Discovery Directory View */
-            <section className="discovery-section" aria-labelledby="discovery-heading">
+            <section className="discovery-section" aria-labelledby="journey-heading">
               {/* Header intro */}
-              <div className="discovery-hero">
-                <span className="discovery-badge">Your growth, guided by experts</span>
-                <h1 id="discovery-heading" className="discovery-title">
-                  Learn from people who&apos;ve already been there.
-                </h1>
-                <p className="discovery-subtitle">
-                  Connect with experienced professionals and academic mentors who can help
-                  you turn your ambitions into achievements.
-                </p>
-                <button
-                  type="button"
-                  className="hero-cta"
-                  onClick={scrollToMentors}
-                >
-                  Explore Mentors
-                </button>
-              </div>
+              <MentorshipHome
+                mentors={filteredMentors}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                onClearSearch={() => setSearchQuery('')}
+                onSelectMentor={setSelectedMentorId}
+                onBrowseMentors={scrollToMentors}
+                mentorCount={mentors.length}
+                sessionCount={INITIAL_UPCOMING_SESSIONS.length}
+              />
 
               {/* Search and Filters Control Panel */}
               <div className="discovery-controls" ref={listingsRef} id="mentor-listings">
-                <SearchBar
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                  onClearSearch={() => setSearchQuery('')}
-                />
-
                 <CategoryFilter
                   categories={MOCK_CATEGORIES}
                   selectedCategory={selectedCategory}
