@@ -220,7 +220,7 @@ describe('Feature A: Mentorship Session Lifecycle', () => {
           studentName: studentUser.name,
           studentEmail: studentUser.email,
           sessionDate: '2026-11-22',
-          timeSlot: '02:00 PM – 03:00 PM IST',
+          timeSlot: '03:00 PM – 04:00 PM IST',
           sessionTopic: 'Cancellation Test',
           status: 'confirmed',
         },
