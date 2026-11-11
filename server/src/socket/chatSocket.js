@@ -69,11 +69,38 @@ export function initChatSocket(httpServer) {
           return;
         }
 
-        // Validate session ownership and access
         await getAuthorizedSession(sessionId, socket.user);
 
         const roomName = `session:${sessionId}`;
         socket.join(roomName);
+
+        const recentMessages = await prisma.chatMessage.findMany({
+          where: { sessionId },
+          orderBy: { createdAt: 'asc' },
+          take: 50,
+        });
+
+        const senderIds = [...new Set(recentMessages.map((m) => m.senderId))];
+        const users = await prisma.user.findMany({
+          where: { id: { in: senderIds } },
+          select: { id: true, name: true, role: true, avatar: true },
+        });
+        const senderMap = new Map(users.map((user) => [user.id, user]));
+
+        const formattedMessages = recentMessages.map((message) => {
+          const sender = senderMap.get(message.senderId);
+          return {
+            id: message.id,
+            sessionId: message.sessionId,
+            senderId: message.senderId,
+            senderName: sender?.name || 'User',
+            senderRole: sender?.role || 'STUDENT',
+            senderAvatar: sender?.avatar || null,
+            content: message.content,
+            messageType: message.messageType,
+            createdAt: message.createdAt,
+          };
+        });
 
         if (callback) {
           callback({
@@ -81,6 +108,7 @@ export function initChatSocket(httpServer) {
             sessionId,
             userId: socket.user.id,
             joinedAt: new Date().toISOString(),
+            messages: formattedMessages,
           });
         }
 
@@ -100,7 +128,6 @@ export function initChatSocket(httpServer) {
       }
     });
 
-    // 2. Send Real-Time Chat Message
     socket.on('send_message', async (payload, callback) => {
       try {
         const { sessionId, content, messageType = 'TEXT' } = payload || {};
@@ -122,18 +149,24 @@ export function initChatSocket(httpServer) {
         }
 
         const validTypes = ['TEXT', 'RESOURCE_LINK', 'SYSTEM'];
-        const type = validTypes.includes(messageType) ? messageType : 'TEXT';
+        if (!validTypes.includes(messageType)) {
+          if (callback) callback({ error: 'Invalid message type', code: 'INVALID_MESSAGE_TYPE' });
+          return;
+        }
 
-        // Check user session membership
         await getAuthorizedSession(sessionId, socket.user);
 
-        // Persist message to database
+        const roomName = `session:${sessionId}`;
+        if (!socket.rooms.has(roomName)) {
+          socket.join(roomName);
+        }
+
         const message = await prisma.chatMessage.create({
           data: {
             sessionId,
             senderId: socket.user.id,
             content: trimmed,
-            messageType: type,
+            messageType: messageType,
           },
         });
 
@@ -149,7 +182,6 @@ export function initChatSocket(httpServer) {
           createdAt: message.createdAt,
         };
 
-        const roomName = `session:${sessionId}`;
         io.to(roomName).emit('new_message', formattedMessage);
 
         if (callback) {
