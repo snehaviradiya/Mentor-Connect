@@ -93,6 +93,80 @@ export function formatSessionResponse(session) {
   };
 }
 
+export async function ensureSessionForBooking(tx, booking, studentUserId = null) {
+  const existingSession = await tx.session.findUnique({
+    where: { bookingId: booking.id },
+  });
+
+  if (existingSession) {
+    return existingSession;
+  }
+
+  const resolvedStudentId = studentUserId || booking.mentee?.userId || null;
+  if (!resolvedStudentId) {
+    const studentUser = await tx.user.findUnique({ where: { email: booking.studentEmail } });
+    if (!studentUser) {
+      throw new AppError('Unable to resolve the student profile for this booking.', 400, 'INVALID_BOOKING_DATA');
+    }
+  }
+
+  const finalStudentId = resolvedStudentId || (await tx.user.findUnique({ where: { email: booking.studentEmail } }))?.id;
+  if (!finalStudentId) {
+    throw new AppError('Unable to resolve the student profile for this booking.', 400, 'INVALID_BOOKING_DATA');
+  }
+
+  const sessionId = `sess_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+  return await tx.session.create({
+    data: {
+      id: sessionId,
+      bookingId: booking.id,
+      mentorId: booking.mentorId,
+      studentId: finalStudentId,
+      status: 'SCHEDULED',
+      meetingRoomId: generateMeetingRoomId(booking.id),
+    },
+  });
+}
+
+export async function syncSessionWithBooking(tx, bookingId, nextBookingStatus) {
+  const session = await tx.session.findUnique({ where: { bookingId } });
+  if (!session) {
+    return null;
+  }
+
+  if (nextBookingStatus === 'cancelled') {
+    return await tx.session.update({
+      where: { id: session.id },
+      data: {
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+      },
+    });
+  }
+
+  if (nextBookingStatus === 'completed') {
+    return await tx.session.update({
+      where: { id: session.id },
+      data: {
+        status: 'COMPLETED',
+        completedAt: new Date(),
+      },
+    });
+  }
+
+  if (session.status === 'COMPLETED' || session.status === 'CANCELLED') {
+    return session;
+  }
+
+  return await tx.session.update({
+    where: { id: session.id },
+    data: {
+      status: 'SCHEDULED',
+      startedAt: session.startedAt || null,
+    },
+  });
+}
+
 /**
  * POST /api/sessions
  * Create or derive a persistent mentorship session from a confirmed booking.

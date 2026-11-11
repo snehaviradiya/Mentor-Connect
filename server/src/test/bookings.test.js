@@ -70,6 +70,55 @@ describe('Bookings and Scheduling Engine', () => {
       const storedBooking = await prisma.booking.findUnique({ where: { id: createdBookingId } });
       expect(storedBooking.studentName).toBe('Sneha Viradiya');
       expect(storedBooking.studentEmail).toBe(testStudentEmail);
+
+      const autoSession = await prisma.session.findFirst({ where: { bookingId: createdBookingId } });
+      expect(autoSession).toBeTruthy();
+      expect(autoSession.status).toBe('SCHEDULED');
+      expect(autoSession.meetingRoomId).toContain('mentor-connect-session-');
+    });
+
+    it('keeps a booking-linked session in sync when the booking is cancelled or rescheduled', async () => {
+      const payload = {
+        mentorId: 'mentor-1',
+        studentName: 'Sync Session Student',
+        studentEmail: 'sync.session@adypu.edu.in',
+        sessionDate: '2026-11-22',
+        timeSlot: '02:00 PM – 03:00 PM IST',
+        sessionTopic: 'Lifecycle sync regression test',
+      };
+
+      const createRes = await request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send(payload);
+
+      expect(createRes.status).toBe(201);
+      const bookingId = createRes.body.data.bookingId;
+
+      const initialSession = await prisma.session.findFirst({ where: { bookingId } });
+      expect(initialSession).toBeTruthy();
+      expect(initialSession.status).toBe('SCHEDULED');
+
+      const rescheduleRes = await request(app)
+        .patch(`/api/bookings/${bookingId}/reschedule`)
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({
+          sessionDate: '2026-11-23',
+          timeSlot: '04:00 PM – 05:00 PM IST',
+        });
+
+      expect(rescheduleRes.status).toBe(200);
+      const updatedBooking = await prisma.booking.findUnique({ where: { id: bookingId } });
+      expect(updatedBooking.sessionDate).toBe('2026-11-23');
+      expect(updatedBooking.timeSlot).toBe('04:00 PM – 05:00 PM IST');
+
+      const cancelRes = await request(app)
+        .patch(`/api/bookings/${bookingId}/cancel`)
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(cancelRes.status).toBe(200);
+      const cancelledSession = await prisma.session.findFirst({ where: { bookingId } });
+      expect(cancelledSession.status).toBe('CANCELLED');
     });
 
     it('rejects double-booking the same mentor, date, and slot with 409 SLOT_UNAVAILABLE', async () => {

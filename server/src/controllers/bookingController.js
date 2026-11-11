@@ -1,5 +1,7 @@
 import prisma from '../prisma.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { ensureSessionForBooking, syncSessionWithBooking } from './sessionController.js';
+import { createUserNotification } from './notificationController.js';
 import { isValidDateString, isValidTimeSlot, getTodayDateString } from '../middleware/validator.js';
 
 function generateBookingId() {
@@ -60,6 +62,7 @@ export async function createBooking(req, res, next) {
       include: {
         user: {
           select: {
+            id: true,
             name: true,
             email: true,
           },
@@ -119,8 +122,7 @@ export async function createBooking(req, res, next) {
     }
 
     // 3. Concurrency-safe atomic transaction for conflict check & creation
-    const newBooking = await prisma.$transaction(async (tx) => {
-      // Check for any active (non-cancelled) booking on the exact same mentor, date, and slot
+    const transactionResult = await prisma.$transaction(async (tx) => {
       const conflictingBooking = await tx.booking.findFirst({
         where: {
           mentorId,
@@ -139,8 +141,7 @@ export async function createBooking(req, res, next) {
       }
 
       const bookingId = generateBookingId();
-
-      return await tx.booking.create({
+      const booking = await tx.booking.create({
         data: {
           id: bookingId,
           mentorId,
@@ -154,6 +155,9 @@ export async function createBooking(req, res, next) {
           status: 'confirmed',
         },
       });
+
+      const session = await ensureSessionForBooking(tx, booking, req.user?.id || null);
+      return { booking, session };
     }).catch((err) => {
       if (isUniqueConflictError(err)) {
         throw new AppError(
@@ -164,6 +168,27 @@ export async function createBooking(req, res, next) {
       }
       throw err;
     });
+
+    await Promise.all([
+      createUserNotification(mentor.userId, {
+        type: 'BOOKING_CONFIRMED',
+        title: 'New booking confirmed',
+        message: `A student booked your ${sessionDate} ${timeSlot} session.`,
+        entityType: 'booking',
+        entityId: transactionResult.booking.id,
+      }),
+      req.user?.id
+        ? createUserNotification(req.user.id, {
+            type: 'BOOKING_CONFIRMED',
+            title: 'Booking confirmed',
+            message: `Your ${sessionDate} ${timeSlot} session with ${mentorName} is confirmed.`,
+            entityType: 'booking',
+            entityId: transactionResult.booking.id,
+          })
+        : null,
+    ]);
+
+    const newBooking = transactionResult.booking;
 
     res.status(201).json({
       status: 'success',
@@ -266,6 +291,16 @@ export async function cancelBooking(req, res, next) {
 
     const booking = await prisma.booking.findFirst({
       where: { id, ...getBookingScope(req.user) },
+      include: {
+        mentor: {
+          include: {
+            user: { select: { id: true } },
+          },
+        },
+        mentee: {
+          include: { user: { select: { id: true } } },
+        },
+      },
     });
 
     if (!booking) throw new AppError('Booking not found.', 404, 'BOOKING_NOT_FOUND');
@@ -277,10 +312,39 @@ export async function cancelBooking(req, res, next) {
       throw new AppError('Cannot cancel a completed booking.', 400, 'INVALID_STATUS_TRANSITION');
     }
 
-    const updated = await prisma.booking.update({
-      where: { id },
-      data: { status: 'cancelled' },
+    const updated = await prisma.$transaction(async (tx) => {
+      const bookingUpdate = await tx.booking.update({
+        where: { id },
+        data: { status: 'cancelled' },
+      });
+
+      await syncSessionWithBooking(tx, bookingUpdate.id, 'cancelled');
+
+      return bookingUpdate;
     });
+
+    const notifications = [
+      booking.mentor?.user?.id
+        ? createUserNotification(booking.mentor.user.id, {
+            type: 'BOOKING_CANCELLED',
+            title: 'Booking cancelled',
+            message: `The ${booking.sessionDate} ${booking.timeSlot} booking has been cancelled.`,
+            entityType: 'booking',
+            entityId: updated.id,
+          })
+        : null,
+      booking.mentee?.user?.id
+        ? createUserNotification(booking.mentee.user.id, {
+            type: 'BOOKING_CANCELLED',
+            title: 'Booking cancelled',
+            message: `Your ${booking.sessionDate} ${booking.timeSlot} session has been cancelled.`,
+            entityType: 'booking',
+            entityId: updated.id,
+          })
+        : null,
+    ].filter(Boolean);
+
+    await Promise.all(notifications);
 
     res.status(200).json({
       status: 'success',
@@ -315,9 +379,12 @@ export async function rescheduleBooking(req, res, next) {
       include: {
         mentor: {
           include: {
-            user: { select: { name: true } },
+            user: { select: { id: true, name: true } },
             availabilities: true,
           },
+        },
+        mentee: {
+          include: { user: { select: { id: true } } },
         },
       },
     });
@@ -363,7 +430,15 @@ export async function rescheduleBooking(req, res, next) {
     }
 
     const updatedBooking = await prisma.$transaction(async (tx) => {
-      // Check for slot collisions with other active bookings
+      const session = await tx.session.findUnique({ where: { bookingId: id } });
+      if (session && (session.status === 'IN_PROGRESS' || session.status === 'COMPLETED')) {
+        throw new AppError(
+          'Cannot reschedule a session that has already started or concluded.',
+          400,
+          'INVALID_STATUS_TRANSITION'
+        );
+      }
+
       const conflict = await tx.booking.findFirst({
         where: {
           id: { not: id },
@@ -382,7 +457,7 @@ export async function rescheduleBooking(req, res, next) {
         );
       }
 
-      return await tx.booking.update({
+      const updated = await tx.booking.update({
         where: { id },
         data: {
           sessionDate,
@@ -390,6 +465,9 @@ export async function rescheduleBooking(req, res, next) {
           status: 'confirmed',
         },
       });
+
+      await syncSessionWithBooking(tx, updated.id, 'rescheduled');
+      return updated;
     }).catch((err) => {
       if (isUniqueConflictError(err)) {
         throw new AppError(

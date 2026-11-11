@@ -19,8 +19,26 @@ model User {
 
   mentorProfile MentorProfile?
   menteeProfile MenteeProfile?
+  notifications Notification[]
 
   @@map("users")
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String   @default("INFO")
+  title      String
+  message    String
+  entityType String?
+  entityId   String?
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, read, createdAt])
+  @@map("notifications")
 }
 
 model MentorProfile {
@@ -105,7 +123,7 @@ model Booking {
 model Session {
   id             String            @id @default(uuid())
   bookingId      String            @unique
-  booking        Booking           @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  booking        Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   mentorId       String
   studentId      String            // User.id of the student
   status         String            @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED

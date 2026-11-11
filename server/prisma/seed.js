@@ -136,6 +136,11 @@ export async function seedDatabase() {
   `);
 
   // Clean existing records in reverse relational order
+  await prisma.sessionReview.deleteMany({});
+  await prisma.sessionResource.deleteMany({});
+  await prisma.chatMessage.deleteMany({});
+  await prisma.session.deleteMany({});
+  await prisma.notification.deleteMany({});
   await prisma.booking.deleteMany({});
   await prisma.mentorAvailability.deleteMany({});
   await prisma.mentorProfile.deleteMany({});
