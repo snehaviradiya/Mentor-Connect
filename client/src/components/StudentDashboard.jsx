@@ -5,10 +5,91 @@ import { useToast } from '../context/ToastContext.jsx';
 import { INITIAL_UPCOMING_SESSIONS } from '../data/mockSessions.js';
 
 const DEFAULT_LEARNING_GOALS = [
-  { id: 'g1', title: 'Master Distributed State & React Patterns', progress: 80, completed: false, category: 'Software Engineering' },
-  { id: 'g2', title: 'Design Resilient Microservices & API Schemas', progress: 60, completed: false, category: 'Software Engineering' },
-  { id: 'g3', title: 'Prepare for Tech Architecture & System Design Interviews', progress: 35, completed: false, category: 'Career Growth' },
+  {
+    id: 'g1',
+    title: 'Master Distributed State & React Patterns',
+    category: 'Software Engineering',
+    timeframe: 'short',
+    deadline: '2026-11-30',
+    milestones: [
+      { id: 'g1-m1', title: 'Review state management fundamentals', completed: true },
+      { id: 'g1-m2', title: 'Build a shared state demo', completed: true },
+      { id: 'g1-m3', title: 'Compare Context and external stores', completed: true },
+      { id: 'g1-m4', title: 'Profile and optimize re-renders', completed: true },
+      { id: 'g1-m5', title: 'Document patterns for the capstone', completed: false },
+    ],
+  },
+  {
+    id: 'g2',
+    title: 'Design Resilient Microservices & API Schemas',
+    category: 'Software Engineering',
+    timeframe: 'short',
+    deadline: '2026-12-15',
+    milestones: [
+      { id: 'g2-m1', title: 'Map service boundaries', completed: true },
+      { id: 'g2-m2', title: 'Draft API contracts', completed: true },
+      { id: 'g2-m3', title: 'Add retries and error handling', completed: true },
+      { id: 'g2-m4', title: 'Test failure scenarios', completed: false },
+      { id: 'g2-m5', title: 'Review the design with a mentor', completed: false },
+    ],
+  },
+  {
+    id: 'g3',
+    title: 'Prepare for Tech Architecture & System Design Interviews',
+    category: 'Career Growth',
+    timeframe: 'short',
+    deadline: '2027-01-15',
+    milestones: [
+      { id: 'g3-m1', title: 'Study core scalability patterns', completed: true },
+      { id: 'g3-m2', title: 'Practice a URL shortener design', completed: true },
+      { id: 'g3-m3', title: 'Practice a real-time messaging design', completed: false },
+      { id: 'g3-m4', title: 'Complete a mock interview', completed: false },
+      { id: 'g3-m5', title: 'Write a personal design checklist', completed: false },
+    ],
+  },
+  {
+    id: 'g4',
+    title: 'Ship and present my capstone project',
+    category: 'Capstone',
+    timeframe: 'long',
+    deadline: '2027-04-30',
+    milestones: [
+      { id: 'g4-m1', title: 'Finalize scope and success metrics', completed: true },
+      { id: 'g4-m2', title: 'Complete the core product workflow', completed: false },
+      { id: 'g4-m3', title: 'Run accessibility and performance reviews', completed: false },
+      { id: 'g4-m4', title: 'Prepare the final demo and documentation', completed: false },
+    ],
+  },
+  {
+    id: 'g5',
+    title: 'Build a portfolio and secure a software internship',
+    category: 'Career Growth',
+    timeframe: 'long',
+    deadline: '2027-05-31',
+    milestones: [
+      { id: 'g5-m1', title: 'Choose three projects to showcase', completed: false },
+      { id: 'g5-m2', title: 'Publish a polished portfolio site', completed: false },
+      { id: 'g5-m3', title: 'Update resume and online profiles', completed: false },
+      { id: 'g5-m4', title: 'Complete five tailored applications', completed: false },
+    ],
+  },
 ];
+
+function getGoalProgress(goal) {
+  if (!goal.milestones.length) return 0;
+  return Math.round(
+    (goal.milestones.filter((milestone) => milestone.completed).length / goal.milestones.length) * 100
+  );
+}
+
+function formatGoalDeadline(deadline) {
+  if (!deadline) return 'No deadline';
+  return new Intl.DateTimeFormat('en', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(`${deadline}T00:00:00`));
+}
 
 const INITIAL_COMPLETED_SESSIONS = [
   {
@@ -57,6 +138,9 @@ export default function StudentDashboard({
   const toast = useToast();
   const [goals, setGoals] = useState(DEFAULT_LEARNING_GOALS);
   const [newGoalText, setNewGoalText] = useState('');
+  const [newGoalTimeframe, setNewGoalTimeframe] = useState('short');
+  const [newGoalDeadline, setNewGoalDeadline] = useState('');
+  const [newGoalMilestones, setNewGoalMilestones] = useState('');
   const [isAddingGoal, setIsAddingGoal] = useState(false);
   const [sessions, setSessions] = useState(INITIAL_UPCOMING_SESSIONS);
   const [completedSessions, setCompletedSessions] = useState(INITIAL_COMPLETED_SESSIONS);
@@ -82,23 +166,45 @@ export default function StudentDashboard({
     if (!mentors || mentors.length === 0) return [];
     return mentors.length > 3 ? mentors.slice(3, 5) : mentors.slice(0, 2);
   }, [mentors]);
-  const completedGoalCount = goals.filter((goal) => goal.completed).length;
+  const completedGoalCount = goals.filter((goal) =>
+    goal.milestones.length > 0 && goal.milestones.every((milestone) => milestone.completed)
+  ).length;
 
   const toggleGoal = (id) => {
     setGoals((prev) =>
-      prev.map((g) => {
-        if (g.id === id) {
-          const updatedStatus = !g.completed;
-          if (updatedStatus) {
-            toast.success(`Goal completed: "${g.title}"! Keep up the momentum! 🎉`, 'Goal Achieved');
-          }
-          return {
-            ...g,
-            completed: updatedStatus,
-            progress: updatedStatus ? 100 : Math.max(20, g.progress),
-          };
+      prev.map((goal) => {
+        if (goal.id !== id) return goal;
+        const isCompleted = goal.milestones.length > 0 &&
+          goal.milestones.every((milestone) => milestone.completed);
+        const completed = !isCompleted;
+        if (completed) {
+          toast.success(`Goal completed: "${goal.title}"! Keep up the momentum! 🎉`, 'Goal Achieved');
         }
-        return g;
+        return {
+          ...goal,
+          milestones: goal.milestones.map((milestone) => ({ ...milestone, completed })),
+        };
+      })
+    );
+  };
+
+  const toggleMilestone = (goalId, milestoneId) => {
+    setGoals((prev) =>
+      prev.map((goal) => {
+        if (goal.id !== goalId) return goal;
+        const milestones = goal.milestones.map((milestone) =>
+          milestone.id === milestoneId
+            ? { ...milestone, completed: !milestone.completed }
+            : milestone
+        );
+        const wasCompleted = goal.milestones.length > 0 &&
+          goal.milestones.every((milestone) => milestone.completed);
+        const isCompleted = milestones.length > 0 &&
+          milestones.every((milestone) => milestone.completed);
+        if (isCompleted && !wasCompleted) {
+          toast.success(`Goal completed: "${goal.title}"! Keep up the momentum! 🎉`, 'Goal Achieved');
+        }
+        return { ...goal, milestones };
       })
     );
   };
@@ -106,18 +212,30 @@ export default function StudentDashboard({
   const handleAddGoal = (e) => {
     e.preventDefault();
     const trimmed = newGoalText.trim();
-    if (!trimmed) return;
+    const milestones = newGoalMilestones
+      .split('\n')
+      .map((title) => title.trim())
+      .filter(Boolean)
+      .map((title, index) => ({
+        id: `milestone-${Date.now()}-${index}`,
+        title,
+        completed: false,
+      }));
+    if (!trimmed || !newGoalDeadline || !milestones.length) return;
     const newGoal = {
       id: `g-${Date.now()}`,
       title: trimmed,
-      progress: 0,
-      completed: false,
       category: 'Personal Goal',
+      timeframe: newGoalTimeframe,
+      deadline: newGoalDeadline,
+      milestones,
     };
     setGoals((prev) => [newGoal, ...prev]);
     setNewGoalText('');
+    setNewGoalDeadline('');
+    setNewGoalMilestones('');
     setIsAddingGoal(false);
-    toast.success('New learning milestone added to your dashboard!', 'Goal Added');
+    toast.success('New goal and milestones added to your dashboard!', 'Goal Added');
   };
 
   const handleCancelSession = (sessionId, mentorName) => {
@@ -393,74 +511,176 @@ export default function StudentDashboard({
             </div>
           </section>
 
-          {/* 4. Learning Goals Section */}
+          {/* 4. Personal Goals Dashboard */}
           <section className="dashboard-panel" aria-labelledby="goals-heading">
             <div className="panel-header">
               <div className="panel-title-group">
                 <span className="panel-icon" aria-hidden="true">🎯</span>
                 <h2 id="goals-heading" className="panel-title">
-                  Learning Goals &amp; Milestones
+                  My Goals Dashboard
                 </h2>
               </div>
               <button
                 type="button"
                 className="btn-panel-action"
                 onClick={() => setIsAddingGoal(!isAddingGoal)}
+                aria-expanded={isAddingGoal}
               >
                 {isAddingGoal ? 'Cancel' : '+ Add Goal'}
               </button>
             </div>
 
+            <p className="panel-caption">
+              Turn your short- and long-term plans into milestones you can track.
+            </p>
+
             {isAddingGoal && (
-              <form className="add-goal-form" onSubmit={handleAddGoal}>
-                <input
-                  type="text"
-                  className="add-goal-input"
-                  placeholder="e.g. Complete Docker & Containerization deployment..."
-                  value={newGoalText}
-                  onChange={(e) => setNewGoalText(e.target.value)}
-                  autoFocus
-                />
-                <button type="submit" className="btn-add-goal-submit">
-                  Save Goal
-                </button>
+              <form className="goal-builder" onSubmit={handleAddGoal}>
+                <label className="goal-builder-field">
+                  <span>Goal</span>
+                  <input
+                    type="text"
+                    className="add-goal-input"
+                    placeholder="e.g. Complete Docker & Containerization deployment"
+                    value={newGoalText}
+                    onChange={(e) => setNewGoalText(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </label>
+                <div className="goal-builder-row">
+                  <label className="goal-builder-field">
+                    <span>Timeframe</span>
+                    <select
+                      className="add-goal-input"
+                      value={newGoalTimeframe}
+                      onChange={(e) => setNewGoalTimeframe(e.target.value)}
+                    >
+                      <option value="short">Short-term</option>
+                      <option value="long">Long-term</option>
+                    </select>
+                  </label>
+                  <label className="goal-builder-field">
+                    <span>Deadline</span>
+                    <input
+                      type="date"
+                      className="add-goal-input"
+                      value={newGoalDeadline}
+                      onChange={(e) => setNewGoalDeadline(e.target.value)}
+                      required
+                    />
+                  </label>
+                </div>
+                <label className="goal-builder-field">
+                  <span>Milestones <span className="goal-builder-hint">(one per line)</span></span>
+                  <textarea
+                    className="add-goal-input goal-milestones-input"
+                    placeholder={'Outline the work\nComplete a first draft\nReview and refine'}
+                    value={newGoalMilestones}
+                    onChange={(e) => setNewGoalMilestones(e.target.value)}
+                    required
+                    rows={3}
+                  />
+                </label>
+                <div className="goal-builder-actions">
+                  <button type="submit" className="btn-add-goal-submit">
+                    Save Goal
+                  </button>
+                </div>
               </form>
             )}
 
-            <div className="goals-list">
-              {goals.map((goal) => (
-                <div
-                  key={goal.id}
-                  className={`goal-item ${goal.completed ? 'goal-completed' : ''}`}
-                >
-                  <label className="goal-checkbox-container">
-                    <input
-                      type="checkbox"
-                      checked={goal.completed}
-                      onChange={() => toggleGoal(goal.id)}
-                      aria-label={`Mark "${goal.title}" as completed`}
-                    />
-                    <span className="goal-checkmark"></span>
-                  </label>
-
-                  <div className="goal-body">
-                    <div className="goal-title-row">
-                      <span className={`goal-title ${goal.completed ? 'strikethrough' : ''}`}>
-                        {goal.title}
-                      </span>
-                      <span className="goal-category-tag">{goal.category}</span>
+            <div className="goals-horizons">
+              {[
+                { id: 'short', label: 'Short-term goals', description: 'Focus for the next few weeks' },
+                { id: 'long', label: 'Long-term goals', description: 'Bigger milestones on your horizon' },
+              ].map((horizon) => {
+                const horizonGoals = goals.filter((goal) => goal.timeframe === horizon.id);
+                return (
+                  <section className="goals-horizon" key={horizon.id} aria-labelledby={`goals-${horizon.id}-heading`}>
+                    <div className="goals-horizon-header">
+                      <div>
+                        <h3 id={`goals-${horizon.id}-heading`}>{horizon.label}</h3>
+                        <p>{horizon.description}</p>
+                      </div>
+                      <span className="goals-horizon-count">{horizonGoals.length}</span>
                     </div>
+                    {horizonGoals.length > 0 ? (
+                      <div className="goals-list">
+                        {horizonGoals.map((goal) => {
+                          const progress = getGoalProgress(goal);
+                          const completed = progress === 100;
+                          const completedMilestones = goal.milestones.filter((milestone) => milestone.completed).length;
+                          return (
+                            <article
+                              key={goal.id}
+                              className={`goal-item ${completed ? 'goal-completed' : ''}`}
+                            >
+                              <div className="goal-title-row">
+                                <label className="goal-checkbox-container">
+                                  <input
+                                    type="checkbox"
+                                    checked={completed}
+                                    onChange={() => toggleGoal(goal.id)}
+                                    aria-label={`Mark "${goal.title}" as completed`}
+                                  />
+                                  <span className="goal-checkmark"></span>
+                                </label>
+                                <span className={`goal-title ${completed ? 'strikethrough' : ''}`}>
+                                  {goal.title}
+                                </span>
+                                <span className="goal-category-tag">{goal.category}</span>
+                              </div>
 
-                    <div className="goal-progress-bar-bg" role="progressbar" aria-valuenow={goal.progress} aria-valuemin="0" aria-valuemax="100">
-                      <div
-                        className="goal-progress-fill"
-                        style={{ width: `${goal.progress}%` }}
-                      />
-                    </div>
-                    <span className="goal-progress-pct">{goal.progress}% completed</span>
-                  </div>
-                </div>
-              ))}
+                              <div className="goal-meta-row">
+                                <span className="goal-deadline">
+                                  <span aria-hidden="true">◷</span> Due {formatGoalDeadline(goal.deadline)}
+                                </span>
+                                <span className="goal-milestone-count">
+                                  {completedMilestones}/{goal.milestones.length} milestones
+                                </span>
+                              </div>
+
+                              <div
+                                className="goal-progress-bar-bg"
+                                role="progressbar"
+                                aria-label={`${goal.title} progress`}
+                                aria-valuenow={progress}
+                                aria-valuemin="0"
+                                aria-valuemax="100"
+                              >
+                                <div
+                                  className="goal-progress-fill"
+                                  style={{ width: `${progress}%` }}
+                                />
+                              </div>
+                              <span className="goal-progress-pct">{progress}% complete</span>
+
+                              <ul className="goal-milestones">
+                                {goal.milestones.map((milestone) => (
+                                  <li key={milestone.id}>
+                                    <label className={milestone.completed ? 'milestone-completed' : ''}>
+                                      <input
+                                        type="checkbox"
+                                        checked={milestone.completed}
+                                        onChange={() => toggleMilestone(goal.id, milestone.id)}
+                                        aria-label={`Complete milestone: ${milestone.title}`}
+                                      />
+                                      <span>{milestone.title}</span>
+                                    </label>
+                                  </li>
+                                ))}
+                              </ul>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="goals-empty-horizon">No {horizon.id}-term goals yet. Add one to get started.</p>
+                    )}
+                  </section>
+                );
+              })}
             </div>
           </section>
         </div>

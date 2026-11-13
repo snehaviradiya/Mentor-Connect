@@ -41,15 +41,22 @@ describe('Personalized Student Dashboard', () => {
     expect(screen.getByText('Expert Mentors')).toBeInTheDocument();
     expect(screen.getByText('Completed Bookings')).toBeInTheDocument();
     expect(screen.getByText('8')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getAllByText('3').length).toBeGreaterThanOrEqual(1);
 
     // 4. Learning goals
     expect(
-      screen.getByRole('heading', { name: /Learning Goals & Milestones/i })
+      screen.getByRole('heading', { name: /My Goals Dashboard/i })
     ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Short-term goals' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Long-term goals' })).toBeInTheDocument();
     expect(
       screen.getByText(/Master Distributed State & React Patterns/i)
     ).toBeInTheDocument();
+    expect(screen.getByText('Due Nov 30, 2026')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', {
+      name: 'Master Distributed State & React Patterns progress',
+    })).toHaveAttribute('aria-valuenow', '80');
+    expect(screen.getByText('Review state management fundamentals')).toBeInTheDocument();
 
     // 5. Recommended mentors
     expect(
@@ -94,10 +101,33 @@ describe('Personalized Student Dashboard', () => {
 
     const input = screen.getByPlaceholderText(/Complete Docker & Containerization/i);
     fireEvent.change(input, { target: { value: 'Master WebSockets and Realtime Sync' } });
-    fireEvent.click(screen.getByRole('button', { name: /Save Goal/i }));
+    fireEvent.change(screen.getByLabelText('Deadline'), { target: { value: '2027-02-01' } });
+    fireEvent.change(screen.getByLabelText(/Milestones/), {
+      target: { value: 'Build a realtime prototype\nReview the implementation' },
+    });
+    fireEvent.submit(input.closest('form'));
 
     expect(screen.getByText(/Master WebSockets and Realtime Sync/i)).toBeInTheDocument();
+    expect(screen.getByText('Build a realtime prototype')).toBeInTheDocument();
     expect(screen.getByTestId('toast-success')).toBeInTheDocument();
+  });
+
+  it('updates goal progress and completion when milestones are checked off', () => {
+    render(
+      <ToastProvider>
+        <StudentDashboard mentors={MOCK_MENTORS} />
+      </ToastProvider>
+    );
+
+    fireEvent.click(screen.getByRole('checkbox', {
+      name: 'Complete milestone: Document patterns for the capstone',
+    }));
+
+    expect(screen.getByRole('progressbar', {
+      name: 'Master Distributed State & React Patterns progress',
+    })).toHaveAttribute('aria-valuenow', '100');
+    expect(screen.getByText('Goals Completed').parentElement).toHaveTextContent('1 / 5');
+    expect(screen.getByText('Goal completed: "Master Distributed State & React Patterns"! Keep up the momentum! 🎉')).toBeInTheDocument();
   });
 
   it('navigates to Dashboard tab from Navbar in main App', () => {
