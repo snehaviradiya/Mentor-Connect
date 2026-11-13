@@ -196,12 +196,13 @@
   max-width: 980px;
   margin: 0 auto 2rem;
   padding: clamp(1.25rem, 3vw, 2rem);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 1.5rem;
   background:
-    radial-gradient(ellipse at 95% 0%, rgba(99, 102, 241, 0.13), transparent 36%),
-    linear-gradient(145deg, #121725 0%, #111522 55%, #10131d 100%);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.36);
+    radial-gradient(ellipse at 92% 0%, rgba(99, 102, 241, 0.15), transparent 38%),
+    linear-gradient(145deg, #141a29 0%, #111725 55%, #10131d 100%);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.38), inset 0 1px rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(18px);
 }
 
 .journey-home-topline {
@@ -230,7 +231,12 @@
   border-radius: 0.55rem;
   background: linear-gradient(135deg, #6366f1, #8b5cf6);
   color: white;
-  font-size: 1rem;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
+}
+
+.journey-home-mark svg {
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
 .journey-home-label {
@@ -247,6 +253,9 @@
 }
 
 .journey-signup-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.45rem 0.8rem;
   border: 1px solid rgba(165, 180, 252, 0.28);
   border-radius: var(--radius-full);
@@ -256,6 +265,11 @@
   font-weight: 700;
   cursor: pointer;
   transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.journey-signup-button svg {
+  width: 0.9rem;
+  height: 0.9rem;
 }
 
 .journey-signup-button:hover {
@@ -341,12 +355,13 @@
   display: grid;
   grid-template-columns: 1fr;
   align-content: start;
-  gap: 0.15rem;
-  min-height: 6rem;
-  padding: 0.8rem;
-  border: 1px solid rgba(148, 163, 184, 0.08);
-  border-radius: 0.85rem;
-  background: #293650;
+  gap: 0.22rem;
+  min-height: 6.25rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(165, 180, 252, 0.09);
+  border-radius: 0.9rem;
+  background: linear-gradient(135deg, rgba(47, 62, 91, 0.92), rgba(39, 52, 77, 0.92));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .journey-stat-card-accent .journey-stat-icon {
@@ -355,14 +370,19 @@
 
 .journey-stat-icon {
   color: #a5b4fc;
-  font-size: 1.1rem;
   line-height: 1;
+}
+
+.journey-stat-icon svg {
+  width: 1.35rem;
+  height: 1.35rem;
 }
 
 .journey-stat-card strong {
   color: #f8fafc;
-  font-size: 1.35rem;
+  font-size: 1.5rem;
   line-height: 1.2;
+  letter-spacing: -0.035em;
 }
 
 .journey-stat-card > span:last-child {
@@ -400,11 +420,11 @@
   display: flex;
   align-items: center;
   width: 100%;
-  gap: 0.65rem;
-  padding: 0.6rem 0.7rem;
-  border: 1px solid transparent;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(165, 180, 252, 0.06);
   border-radius: 0.8rem;
-  background: #293650;
+  background: linear-gradient(135deg, rgba(47, 62, 91, 0.95), rgba(39, 52, 77, 0.95));
   color: #f8fafc;
   text-align: left;
   cursor: pointer;
@@ -450,6 +470,10 @@
 }
 
 .journey-mentor-copy > span {
+  margin-top: 0.1rem;
+}
+
+.journey-mentor-copy > span {
   overflow: hidden;
   color: #cbd5e1;
   font-size: 0.72rem;
@@ -465,6 +489,29 @@
   font-size: 0.66rem;
   font-weight: 600;
   white-space: nowrap;
+}
+
+.journey-mentor-rating {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.journey-mentor-rating > span:first-child {
+  color: #fcd34d;
+}
+
+.journey-mentor-review-count {
+  color: #a7f3d0;
+  font-weight: 500;
 }
 
 .journey-mentor-arrow {
@@ -3094,7 +3141,15 @@
     width: 100%;
   }
 
+  .journey-home-topline {
+    align-items: flex-start;
+  }
+
   .journey-mentor-category {
+    display: none;
+  }
+
+  .journey-mentor-rating {
     display: none;
   }
 

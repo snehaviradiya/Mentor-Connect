@@ -11,9 +11,12 @@ describe('Mentor Discovery', () => {
     expect(screen.getByText('02')).toBeInTheDocument();
     expect(screen.getByText('Expert mentors')).toBeInTheDocument();
     expect(screen.getByText('Your upcoming sessions')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search skills, mentors, goals...')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /View profile of recommended mentor Aarav Sharma/i })
     ).toBeInTheDocument();
+    expect(screen.getByLabelText('4.9 out of 5, 24 reviews')).toBeInTheDocument();
+    expect(screen.getAllByText('Senior Frontend Engineer @ Fintech Labs')).toHaveLength(2);
 
     const searchInput = screen.getByLabelText(/Search Mentors/i);
     fireEvent.change(searchInput, { target: { value: 'Python' } });
