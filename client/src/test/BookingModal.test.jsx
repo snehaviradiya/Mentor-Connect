@@ -43,6 +43,32 @@ describe('Booking Modal', () => {
     expect(
       screen.getByRole('button', { name: /Submit Booking Request/i })
     ).toBeInTheDocument();
+    expect(screen.getByLabelText('Booking completion')).toHaveAttribute('aria-valuenow', '0');
+  });
+
+  it('animates booking progress as contact, schedule, and request details are completed', () => {
+    render(<BookingModal mentor={mockMentor} onClose={vi.fn()} />);
+    const progress = screen.getByLabelText('Booking completion');
+    fireEvent.change(screen.getByLabelText(/Your Full Name/i), {
+      target: { value: 'Abhay Kumar' },
+    });
+    fireEvent.change(screen.getByLabelText(/University Email Address/i), {
+      target: { value: 'abhay@adypu.edu.in' },
+    });
+    expect(progress).toHaveAttribute('aria-valuenow', '33');
+
+    fireEvent.change(screen.getByLabelText(/Session Date/i), {
+      target: { value: '2026-11-15' },
+    });
+    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
+      target: { value: 'slot-1' },
+    });
+    expect(progress).toHaveAttribute('aria-valuenow', '67');
+
+    fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
+      target: { value: 'Architecture Review' },
+    });
+    expect(progress).toHaveAttribute('aria-valuenow', '90');
   });
 
   it('validates required fields upon submitting an empty form without dispatching API call', () => {

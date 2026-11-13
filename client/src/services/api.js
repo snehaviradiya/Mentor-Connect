@@ -79,6 +79,35 @@ export async function createBooking(payload) {
 }
 
 /**
+ * Registers a student account.
+ *
+ * @param {{name: string, email: string, password: string}} payload
+ * @returns {Promise<Object>} The created account and authentication token
+ */
+export async function registerUser(payload) {
+  try {
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ...payload, role: 'STUDENT' }),
+    });
+
+    return await handleResponse(response);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(
+      error.message || 'Unable to connect to the server. Please check your network connection.',
+      0,
+      'NETWORK_ERROR'
+    );
+  }
+}
+
+/**
  * Fetches canonical mentors list from the API.
  *
  * @returns {Promise<Object>} The server response containing mentors array
@@ -128,7 +157,6 @@ export async function updateMentorProfile(mentorId, payload) {
     );
   }
 }
-
 /**
  * Creates or derives a session from a booking.
  */
@@ -312,5 +340,3 @@ export async function fetchMentorReviews(mentorId) {
     throw new ApiError(error.message || 'Failed to fetch mentor reviews.', 0, 'NETWORK_ERROR');
   }
 }
-
-

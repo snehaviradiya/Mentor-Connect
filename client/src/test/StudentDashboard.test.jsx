@@ -38,6 +38,10 @@ describe('Personalized Student Dashboard', () => {
     expect(screen.getByRole('heading', { name: /Upcoming Sessions/i })).toBeInTheDocument();
     expect(screen.getByText(/React Architecture & State Performance Review/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Dr. Priya Kulkarni/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Expert Mentors')).toBeInTheDocument();
+    expect(screen.getByText('Completed Bookings')).toBeInTheDocument();
+    expect(screen.getByText('8')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
 
     // 4. Learning goals
     expect(

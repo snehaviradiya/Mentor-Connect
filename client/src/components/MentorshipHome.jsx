@@ -9,6 +9,7 @@ export default function MentorshipHome({
   onBrowseMentors,
   mentorCount,
   sessionCount,
+  onOpenSignup,
 }) {
   const recommendedMentor = mentors[0];
 
@@ -19,7 +20,12 @@ export default function MentorshipHome({
           <span className="journey-home-mark" aria-hidden="true">✦</span>
           <span>mentor connect</span>
         </div>
-        <span className="journey-home-label">YOUR MENTORSHIP JOURNEY</span>
+        <div className="journey-home-actions">
+          <span className="journey-home-label">YOUR MENTORSHIP JOURNEY</span>
+          <button type="button" className="journey-signup-button" onClick={onOpenSignup}>
+            Create account
+          </button>
+        </div>
       </div>
 
       <h1 id="journey-heading">Build something extraordinary.</h1>

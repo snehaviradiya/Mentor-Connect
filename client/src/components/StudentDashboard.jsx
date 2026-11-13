@@ -2,34 +2,12 @@ import { useState, useMemo } from 'react';
 import MentorCard from './MentorCard.jsx';
 import ReviewModal from './ReviewModal.jsx';
 import { useToast } from '../context/ToastContext.jsx';
+import { INITIAL_UPCOMING_SESSIONS } from '../data/mockSessions.js';
 
 const DEFAULT_LEARNING_GOALS = [
   { id: 'g1', title: 'Master Distributed State & React Patterns', progress: 80, completed: false, category: 'Software Engineering' },
   { id: 'g2', title: 'Design Resilient Microservices & API Schemas', progress: 60, completed: false, category: 'Software Engineering' },
   { id: 'g3', title: 'Prepare for Tech Architecture & System Design Interviews', progress: 35, completed: false, category: 'Career Growth' },
-];
-
-export const INITIAL_UPCOMING_SESSIONS = [
-  {
-    id: 'sess-1',
-    mentorName: 'Aarav Sharma',
-    mentorRole: 'Senior Frontend Engineer @ Fintech Labs',
-    topic: 'React Architecture & State Performance Review',
-    date: 'Nov 12, 2026',
-    time: '10:00 AM – 11:00 AM IST',
-    status: 'Confirmed',
-    meetingLink: '#meeting-room',
-  },
-  {
-    id: 'sess-2',
-    mentorName: 'Dr. Priya Kulkarni',
-    mentorRole: 'Lead AI Researcher @ NeuralEdge Labs',
-    topic: 'Capstone LLM Agent Pipeline & Model Evaluation',
-    date: 'Nov 16, 2026',
-    time: '04:00 PM – 05:00 PM IST',
-    status: 'Confirmed',
-    meetingLink: '#meeting-room',
-  },
 ];
 
 const INITIAL_COMPLETED_SESSIONS = [
@@ -104,6 +82,7 @@ export default function StudentDashboard({
     if (!mentors || mentors.length === 0) return [];
     return mentors.length > 3 ? mentors.slice(3, 5) : mentors.slice(0, 2);
   }, [mentors]);
+  const completedGoalCount = goals.filter((goal) => goal.completed).length;
 
   const toggleGoal = (id) => {
     setGoals((prev) =>
@@ -211,6 +190,8 @@ export default function StudentDashboard({
     <div className="student-dashboard" aria-label="Personalized Student Dashboard">
       {/* 1. Welcome Back Hero Banner */}
       <section className="dashboard-hero" aria-labelledby="welcome-back-heading">
+        <span className="dashboard-float-shape dashboard-float-shape-one" aria-hidden="true" />
+        <span className="dashboard-float-shape dashboard-float-shape-two" aria-hidden="true" />
         <div className="hero-left">
           <div className="student-badge-avatar" aria-hidden="true">
             {student.avatarInitials}
@@ -241,37 +222,35 @@ export default function StudentDashboard({
 
       {/* Metrics Row */}
       <section className="dashboard-stats-grid" aria-label="Learning Metrics Overview">
-        <div className="stat-card">
-          <span className="stat-icon">📅</span>
+        <div className="stat-card stat-card-mentors">
+          <span className="stat-icon" aria-hidden="true">🌟</span>
+          <div>
+            <div className="stat-value">{mentors.length}</div>
+            <div className="stat-label">Expert Mentors</div>
+          </div>
+        </div>
+
+        <div className="stat-card stat-card-sessions">
+          <span className="stat-icon" aria-hidden="true">📅</span>
           <div>
             <div className="stat-value">{sessions.length}</div>
             <div className="stat-label">Upcoming Sessions</div>
           </div>
         </div>
 
-        <div className="stat-card">
-          <span className="stat-icon">🎯</span>
+        <div className="stat-card stat-card-completed">
+          <span className="stat-icon" aria-hidden="true">✓</span>
           <div>
-            <div className="stat-value">
-              {goals.filter((g) => g.completed).length} / {goals.length}
-            </div>
+            <div className="stat-value">{completedSessions.length}</div>
+            <div className="stat-label">Completed Bookings</div>
+          </div>
+        </div>
+
+        <div className="stat-card stat-card-goals">
+          <span className="stat-icon" aria-hidden="true">🎯</span>
+          <div>
+            <div className="stat-value">{completedGoalCount} / {goals.length}</div>
             <div className="stat-label">Goals Completed</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <span className="stat-icon">🌟</span>
-          <div>
-            <div className="stat-value">{recommendedMentors.length}</div>
-            <div className="stat-label">Matched Mentors</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <span className="stat-icon">⏱️</span>
-          <div>
-            <div className="stat-value">12 hrs</div>
-            <div className="stat-label">Mentorship Logged</div>
           </div>
         </div>
       </section>

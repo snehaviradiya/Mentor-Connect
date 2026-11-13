@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { DEMO_TIME_SLOTS } from '../data/mockMentors.js';
 import { createBooking } from '../services/api.js';
 import { useToast } from '../context/ToastContext.jsx';
+import ProgressSteps from './ProgressSteps.jsx';
 
 // Deterministic helper to get today's date formatted as YYYY-MM-DD
 function getTodayDateString() {
@@ -32,6 +33,20 @@ export default function BookingModal({ mentor, onClose }) {
   const [submittedData, setSubmittedData] = useState(null);
   const [serverError, setServerError] = useState(null);
   const [conflictMessage, setConflictMessage] = useState(null);
+  const isContactComplete =
+    studentName.trim().length >= 2 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(studentEmail.trim());
+  const isScheduleComplete = Boolean(sessionDate && selectedSlotId);
+  const isRequestComplete = Boolean(sessionTopic.trim());
+  const completedBookingSteps =
+    Number(isContactComplete) + Number(isContactComplete && isScheduleComplete);
+  const bookingProgress = submissionResult === 'success'
+    ? 100
+    : isContactComplete && isScheduleComplete && isRequestComplete
+      ? 90
+      : completedBookingSteps * (100 / 3);
+  const currentBookingStep = submissionResult === 'success'
+    ? 2
+    : completedBookingSteps;
 
   // Focus trap and Escape key listener
   useEffect(() => {
@@ -255,6 +270,13 @@ export default function BookingModal({ mentor, onClose }) {
             the Mentor Connect API. Bookings are stored in memory during Milestone 3.
           </p>
         </div>
+
+        <ProgressSteps
+          steps={['Your details', 'Session time', 'Request sent']}
+          currentStep={Math.min(currentBookingStep, 2)}
+          progress={bookingProgress}
+          label="Booking"
+        />
 
         {/* Modal Body: Either Form or API Outcome */}
         {submissionResult === 'success' ? (

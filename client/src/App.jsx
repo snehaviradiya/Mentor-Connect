@@ -8,11 +8,13 @@ import MentorCardSkeleton from './components/MentorCardSkeleton.jsx';
 import MentorProfile from './components/MentorProfile.jsx';
 import EmptyState from './components/EmptyState.jsx';
 import ProjectOverview from './components/ProjectOverview.jsx';
-import StudentDashboard, { INITIAL_UPCOMING_SESSIONS } from './components/StudentDashboard.jsx';
+import StudentDashboard from './components/StudentDashboard.jsx';
+import { INITIAL_UPCOMING_SESSIONS } from './data/mockSessions.js';
 import ResourceLibrary from './components/ResourceLibrary.jsx';
 import SessionWorkspace from './components/SessionWorkspace.jsx';
 import AvailabilityExplorer from './components/AvailabilityExplorer.jsx';
 import MentorshipHome from './components/MentorshipHome.jsx';
+import RegistrationModal from './components/RegistrationModal.jsx';
 import BookingModal from './components/BookingModal.jsx';
 import { ToastProvider, useToast } from './context/ToastContext.jsx';
 import { fetchMentors } from './services/api.js';
@@ -25,6 +27,7 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
   const [quickBookingMentor, setQuickBookingMentor] = useState(null);
   const [workspaceSession, setWorkspaceSession] = useState(null);
   const [selectedAvailability, setSelectedAvailability] = useState(null);
+  const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
   const [mentors, setMentors] = useState(initialMentors);
   const listingsRef = useRef(null);
   const toast = useToast();
@@ -208,6 +211,7 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
                 onBrowseMentors={scrollToMentors}
                 mentorCount={mentors.length}
                 sessionCount={INITIAL_UPCOMING_SESSIONS.length}
+                onOpenSignup={() => setIsRegistrationOpen(true)}
               />
 
               {/* Search and Filters Control Panel */}
@@ -375,6 +379,9 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
           mentor={quickBookingMentor}
           onClose={() => setQuickBookingMentor(null)}
         />
+      )}
+      {isRegistrationOpen && (
+        <RegistrationModal onClose={() => setIsRegistrationOpen(false)} />
       )}
 
       {/* Footer */}
