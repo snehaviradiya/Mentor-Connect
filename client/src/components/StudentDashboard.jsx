@@ -128,6 +128,131 @@ const INITIAL_COMPLETED_SESSIONS = [
   },
 ];
 
+const INITIAL_PENDING_SESSIONS = [
+  {
+    id: 'pending-1',
+    mentorId: 'mentor-4',
+    mentorName: 'Ananya Verma',
+    mentorRole: 'Lead Product Designer @ Creative Studio',
+    topic: 'Portfolio Review & Design Systems',
+    date: 'Nov 20, 2026',
+    time: '03:00 PM – 04:00 PM IST',
+    status: 'Pending confirmation',
+  },
+];
+
+const SESSION_COLUMNS = [
+  { id: 'upcoming', title: 'Upcoming Sessions', icon: '🗓️' },
+  { id: 'pending', title: 'Pending Sessions', icon: '⏳' },
+  { id: 'completed', title: 'Completed Sessions & Reviews', icon: '⭐' },
+  { id: 'cancelled', title: 'Cancelled Sessions', icon: '↩️' },
+];
+
+function SessionBoardCard({
+  session,
+  status,
+  onOpenWorkspace,
+  onJoinMeeting,
+  onCancel,
+  onReview,
+  onViewProfile,
+}) {
+  const isCompleted = status === 'completed';
+  const isUpcoming = status === 'upcoming';
+  const statusLabel = isCompleted
+    ? 'Completed'
+    : isUpcoming
+      ? session.status
+      : status === 'pending'
+        ? 'Awaiting confirmation'
+        : 'Cancelled';
+
+  return (
+    <article
+      className={`session-card session-board-card session-board-card-${status}${isCompleted ? ' completed-card' : ''}`}
+      aria-label={`${statusLabel} session with ${session.mentorName}`}
+    >
+      <div className="session-main">
+        <div className="session-header-row">
+          <h4 className="session-topic">{session.topic}</h4>
+          <span className={`session-status-badge session-status-${status}`}>{statusLabel}</span>
+        </div>
+        <p className="session-mentor-info">
+          Mentor: <strong>{session.mentorName}</strong> · {session.mentorRole}
+        </p>
+        <div className="session-meta-row">
+          <span className="session-time-chip">
+            {isCompleted ? '✓ Completed on' : '📅'} {session.date}{!isCompleted && ` · ${session.time}`}
+          </span>
+        </div>
+      </div>
+
+      {isUpcoming && (
+        <div className="session-actions">
+          <button
+            type="button"
+            className="btn-workspace"
+            onClick={() => onOpenWorkspace?.(session)}
+            aria-label={`Open workspace for ${session.topic}`}
+          >
+            Open Workspace
+          </button>
+          <button type="button" className="btn-join-session" onClick={() => onJoinMeeting(session)}>
+            Join Room
+          </button>
+          <button
+            type="button"
+            className="btn-cancel-session"
+            onClick={() => onCancel(session, status)}
+            aria-label={`Cancel session with ${session.mentorName}`}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {status === 'pending' && (
+        <div className="session-actions">
+          <button
+            type="button"
+            className="btn-cancel-session"
+            onClick={() => onCancel(session, status)}
+            aria-label={`Cancel pending session with ${session.mentorName}`}
+          >
+            Cancel request
+          </button>
+        </div>
+      )}
+
+      {isCompleted && (
+        <div className="session-actions">
+          {session.hasReviewed ? (
+            <div className="reviewed-indicator">
+              <span className="reviewed-badge">✓ Reviewed ⭐ {session.userRating || 5}/5</span>
+              <button
+                type="button"
+                className="btn-view-profile-link"
+                onClick={() => onViewProfile(session.mentorId)}
+              >
+                View on Profile →
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn-rate-mentor-cta"
+              onClick={() => onReview(session)}
+              aria-label={`Rate and review session with ${session.mentorName}`}
+            >
+              ⭐ Rate &amp; Write Review
+            </button>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}
+
 export default function StudentDashboard({
   mentors = [],
   onSelectMentor,
@@ -143,6 +268,8 @@ export default function StudentDashboard({
   const [newGoalMilestones, setNewGoalMilestones] = useState('');
   const [isAddingGoal, setIsAddingGoal] = useState(false);
   const [sessions, setSessions] = useState(INITIAL_UPCOMING_SESSIONS);
+  const [pendingSessions, setPendingSessions] = useState(INITIAL_PENDING_SESSIONS);
+  const [cancelledSessions, setCancelledSessions] = useState([]);
   const [completedSessions, setCompletedSessions] = useState(INITIAL_COMPLETED_SESSIONS);
   const [reviewingSession, setReviewingSession] = useState(null);
 
@@ -238,12 +365,14 @@ export default function StudentDashboard({
     toast.success('New goal and milestones added to your dashboard!', 'Goal Added');
   };
 
-  const handleCancelSession = (sessionId, mentorName) => {
-    setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+  const handleCancelSession = (session, status) => {
+    const updateSessions = status === 'pending' ? setPendingSessions : setSessions;
+    updateSessions((prev) => prev.filter((item) => item.id !== session.id));
+    setCancelledSessions((prev) => [{ ...session, status: 'Cancelled' }, ...prev]);
     if (toast.bookingCancelled) {
-      toast.bookingCancelled(`Session with ${mentorName} has been cancelled.`, 'Session Cancelled');
+      toast.bookingCancelled(`Session with ${session.mentorName} has been cancelled.`, 'Session Cancelled');
     } else {
-      toast.warning(`Session with ${mentorName} has been cancelled.`, 'Session Cancelled');
+      toast.warning(`Session with ${session.mentorName} has been cancelled.`, 'Session Cancelled');
     }
   };
 
@@ -376,138 +505,66 @@ export default function StudentDashboard({
       {/* 2-Column Layout: Left = Upcoming Sessions & Learning Goals, Right = Mentors */}
       <div className="dashboard-content-split">
         <div className="dashboard-primary-col">
-          {/* 2. Upcoming Sessions Section */}
-          <section className="dashboard-panel" aria-labelledby="sessions-heading">
+          {/* 2. Session Management Board */}
+          <section className="dashboard-panel session-management-panel" aria-labelledby="session-board-heading">
             <div className="panel-header">
               <div className="panel-title-group">
-                <span className="panel-icon" aria-hidden="true">🗓️</span>
-                <h2 id="sessions-heading" className="panel-title">
-                  Upcoming Sessions
-                </h2>
+                <span className="panel-icon" aria-hidden="true">🗂️</span>
+                <h2 id="session-board-heading" className="panel-title">Session Management Board</h2>
               </div>
-              <span className="badge-count">{sessions.length} Scheduled</span>
+              <span className="badge-count">
+                {sessions.length + pendingSessions.length + completedSessions.length + cancelledSessions.length} Total
+              </span>
             </div>
+            <p className="panel-caption">Track your mentorship sessions by status.</p>
 
-            {sessions.length === 0 ? (
-              <div className="empty-panel-notice">
-                <p>No upcoming sessions scheduled right now.</p>
-                <button
-                  type="button"
-                  className="btn-link-action"
-                  onClick={handleQuickBook}
-                >
-                  Schedule your next demo consultation →
-                </button>
-              </div>
-            ) : (
-              <div className="sessions-list">
-                {sessions.map((sess) => (
-                  <article key={sess.id} className="session-card" aria-label={`Session with ${sess.mentorName}`}>
-                    <div className="session-main">
-                      <div className="session-header-row">
-                        <h3 className="session-topic">{sess.topic}</h3>
-                        <span className="session-status-badge">{sess.status}</span>
-                      </div>
-                      <p className="session-mentor-info">
-                        Mentor: <strong>{sess.mentorName}</strong> • {sess.mentorRole}
-                      </p>
-                      <div className="session-meta-row">
-                        <span className="session-time-chip">
-                          📅 {sess.date} at {sess.time}
-                        </span>
-                      </div>
+            <div className="session-board" aria-label="Sessions grouped by status">
+              {SESSION_COLUMNS.map((column) => {
+                const columnSessions = {
+                  upcoming: sessions,
+                  pending: pendingSessions,
+                  completed: completedSessions,
+                  cancelled: cancelledSessions,
+                }[column.id];
+                return (
+                  <section
+                    className={`session-board-column session-board-column-${column.id}`}
+                    key={column.id}
+                    aria-labelledby={`session-column-${column.id}`}
+                  >
+                    <div className="session-board-column-header">
+                      <h3 id={`session-column-${column.id}`}>
+                        <span aria-hidden="true">{column.icon}</span>
+                        {column.title}
+                      </h3>
+                      <span className="session-board-count">{columnSessions.length}</span>
                     </div>
-                    <div className="session-actions">
-                      <button
-                        type="button"
-                        className="btn-workspace"
-                        onClick={() => onOpenWorkspace?.(sess)}
-                        aria-label={`Open workspace for ${sess.topic}`}
-                      >
-                        Open Workspace
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-join-session"
-                        onClick={() => handleJoinMeeting(sess)}
-                      >
-                        Join Room
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-cancel-session"
-                        onClick={() => handleCancelSession(sess.id, sess.mentorName)}
-                        title="Cancel this session"
-                        aria-label={`Cancel session with ${sess.mentorName}`}
-                      >
-                        Cancel
-                      </button>
+                    <div className="session-board-list">
+                      {columnSessions.length > 0 ? (
+                        columnSessions.map((session) => (
+                          <SessionBoardCard
+                            key={session.id}
+                            session={session}
+                            status={column.id}
+                            onOpenWorkspace={onOpenWorkspace}
+                            onJoinMeeting={handleJoinMeeting}
+                            onCancel={handleCancelSession}
+                            onReview={handleOpenReview}
+                            onViewProfile={(mentorId) => onSelectMentor?.(mentorId)}
+                          />
+                        ))
+                      ) : (
+                        <p className="session-board-empty">No {column.title.toLowerCase()}.</p>
+                      )}
                     </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* 3. Completed Sessions & Student Reviews */}
-          <section className="dashboard-panel completed-sessions-panel" aria-labelledby="completed-sessions-heading">
-            <div className="panel-header">
-              <div className="panel-title-group">
-                <span className="panel-icon" aria-hidden="true">⭐</span>
-                <h2 id="completed-sessions-heading" className="panel-title">
-                  Completed Sessions &amp; Reviews
-                </h2>
-              </div>
-              <span className="badge-count count-green">{completedSessions.length} Completed</span>
-            </div>
-
-            <p className="panel-caption">
-              Rate your mentors and leave verified feedback after completed consultations.
-            </p>
-
-            <div className="sessions-list">
-              {completedSessions.map((sess) => (
-                <article key={sess.id} className="session-card completed-card" aria-label={`Completed session with ${sess.mentorName}`}>
-                  <div className="session-main">
-                    <div className="session-header-row">
-                      <h3 className="session-topic">{sess.topic}</h3>
-                      <span className="session-status-badge badge-completed">✓ Completed</span>
-                    </div>
-                    <p className="session-mentor-info">
-                      Mentor: <strong>{sess.mentorName}</strong> • {sess.mentorRole}
-                    </p>
-                    <div className="session-meta-row">
-                      <span className="session-time-chip">
-                        📅 Completed on {sess.date}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="session-actions">
-                    {sess.hasReviewed ? (
-                      <div className="reviewed-indicator">
-                        <span className="reviewed-badge">✓ Reviewed ⭐ {sess.userRating || 5}/5</span>
-                        <button
-                          type="button"
-                          className="btn-view-profile-link"
-                          onClick={() => onSelectMentor && onSelectMentor(sess.mentorId)}
-                        >
-                          View on Profile →
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn-rate-mentor-cta"
-                        onClick={() => handleOpenReview(sess)}
-                        aria-label={`Rate and review session with ${sess.mentorName}`}
-                      >
-                        ⭐ Rate &amp; Write Review
+                    {column.id === 'upcoming' && columnSessions.length === 0 && (
+                      <button type="button" className="btn-link-action" onClick={handleQuickBook}>
+                        Schedule a session →
                       </button>
                     )}
-                  </div>
-                </article>
-              ))}
+                  </section>
+                );
+              })}
             </div>
           </section>
 

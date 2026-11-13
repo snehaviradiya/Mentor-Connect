@@ -35,9 +35,13 @@ describe('Personalized Student Dashboard', () => {
     expect(quickBookBtn).toBeInTheDocument();
 
     // 3. Upcoming sessions
+    expect(screen.getByRole('heading', { name: /Session Management Board/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Upcoming Sessions/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Pending Sessions/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Cancelled Sessions/i })).toBeInTheDocument();
     expect(screen.getByText(/React Architecture & State Performance Review/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Dr. Priya Kulkarni/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Portfolio Review & Design Systems/i)).toBeInTheDocument();
     expect(screen.getByText('Expert Mentors')).toBeInTheDocument();
     expect(screen.getByText('Completed Bookings')).toBeInTheDocument();
     expect(screen.getByText('8')).toBeInTheDocument();
@@ -87,6 +91,43 @@ describe('Personalized Student Dashboard', () => {
     expect(onQuickBookMentor).toHaveBeenCalledWith(MOCK_MENTORS[0]);
     expect(screen.getByTestId('toast-info')).toBeInTheDocument();
     expect(screen.getByText(/Opening quick booking for Aarav Sharma/i)).toBeInTheDocument();
+  });
+
+  it('moves a cancelled pending request into the cancelled column', () => {
+    render(
+      <ToastProvider>
+        <StudentDashboard mentors={MOCK_MENTORS} />
+      </ToastProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Cancel pending session with Ananya Verma',
+    }));
+
+    expect(screen.getByText('No pending sessions.')).toBeInTheDocument();
+    expect(screen.getByRole('article', {
+      name: 'Cancelled session with Ananya Verma',
+    })).toBeInTheDocument();
+    expect(screen.getByText('Session with Ananya Verma has been cancelled.')).toBeInTheDocument();
+  });
+
+  it('moves a cancelled upcoming booking into the cancelled column', () => {
+    render(
+      <ToastProvider>
+        <StudentDashboard mentors={MOCK_MENTORS} />
+      </ToastProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Cancel session with Aarav Sharma',
+    }));
+
+    expect(screen.queryByRole('article', {
+      name: 'Confirmed session with Aarav Sharma',
+    })).not.toBeInTheDocument();
+    expect(screen.getByRole('article', {
+      name: 'Cancelled session with Aarav Sharma',
+    })).toBeInTheDocument();
   });
 
   it('allows adding a new learning goal', () => {
