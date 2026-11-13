@@ -3,6 +3,7 @@ import MentorCard from './MentorCard.jsx';
 import ReviewModal from './ReviewModal.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { INITIAL_UPCOMING_SESSIONS } from '../data/mockSessions.js';
+import UpcomingEvents from './UpcomingEvents.jsx';
 
 const DEFAULT_LEARNING_GOALS = [
   {
@@ -567,6 +568,8 @@ export default function StudentDashboard({
               })}
             </div>
           </section>
+
+          <UpcomingEvents />
 
           {/* 4. Personal Goals Dashboard */}
           <section className="dashboard-panel" aria-labelledby="goals-heading">

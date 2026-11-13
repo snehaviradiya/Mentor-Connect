@@ -1,0 +1,32 @@
+export const UPCOMING_EVENTS = [
+  {
+    id: 'event-webinar-1',
+    type: 'Webinar',
+    title: 'Designing Scalable AI Features for Student Projects',
+    description: 'Learn practical patterns for adding AI capabilities to a capstone, from evaluation to responsible deployment.',
+    date: '2026-11-18',
+    time: '5:00 PM – 6:00 PM IST',
+    host: 'Dr. Priya Kulkarni',
+    format: 'Online',
+  },
+  {
+    id: 'event-workshop-1',
+    type: 'Workshop',
+    title: 'Build and Ship a Production-Ready React Feature',
+    description: 'A hands-on session covering component design, testing, accessibility, and a reliable release workflow.',
+    date: '2026-11-24',
+    time: '3:30 PM – 5:00 PM IST',
+    host: 'Aarav Sharma',
+    format: 'Online workshop',
+  },
+  {
+    id: 'event-mentoring-1',
+    type: 'Mentoring',
+    title: 'Capstone Project Clinic: Bring Your Architecture Questions',
+    description: 'Get focused feedback on project scope, system design, and the next milestone from an experienced mentor.',
+    date: '2026-12-02',
+    time: '4:00 PM – 5:30 PM IST',
+    host: 'Vikram Joshi',
+    format: 'Small-group mentoring',
+  },
+];
