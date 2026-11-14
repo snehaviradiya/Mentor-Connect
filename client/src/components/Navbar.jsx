@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 export default function Navbar({ activeTab, onTabChange }) {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -11,6 +12,11 @@ export default function Navbar({ activeTab, onTabChange }) {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const handleTabChange = (tab) => {
+    onTabChange(tab);
+    setIsMobileNavOpen(false);
+  };
 
   return (
     <header className={`app-header${isScrolled ? ' scrolled' : ''}`}>
@@ -34,12 +40,34 @@ export default function Navbar({ activeTab, onTabChange }) {
           </div>
         </div>
 
+        <button
+          type="button"
+          className="mobile-nav-toggle"
+          aria-label={isMobileNavOpen ? 'Close main navigation' : 'Open main navigation'}
+          aria-expanded={isMobileNavOpen}
+          aria-controls="main-navigation"
+          onClick={() => setIsMobileNavOpen((open) => !open)}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            {isMobileNavOpen ? (
+              <path d="m6 6 12 12M18 6 6 18" />
+            ) : (
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            )}
+          </svg>
+          <span>{isMobileNavOpen ? 'Close' : 'Menu'}</span>
+        </button>
+
         {/* Navigation */}
-        <nav className="header-nav" aria-label="Main Navigation">
+        <nav
+          className={`header-nav${isMobileNavOpen ? ' is-open' : ''}`}
+          aria-label="Main Navigation"
+          id="main-navigation"
+        >
           <button
             type="button"
             className={`nav-link${activeTab === 'discover' ? ' active' : ''}`}
-            onClick={() => onTabChange('discover')}
+            onClick={() => handleTabChange('discover')}
             aria-current={activeTab === 'discover' ? 'page' : undefined}
             id="nav-discover"
           >
@@ -48,7 +76,7 @@ export default function Navbar({ activeTab, onTabChange }) {
           <button
             type="button"
             className={`nav-link${activeTab === 'dashboard' ? ' active' : ''}`}
-            onClick={() => onTabChange('dashboard')}
+            onClick={() => handleTabChange('dashboard')}
             aria-current={activeTab === 'dashboard' ? 'page' : undefined}
             id="nav-dashboard"
           >
@@ -57,7 +85,7 @@ export default function Navbar({ activeTab, onTabChange }) {
           <button
             type="button"
             className={`nav-link${activeTab === 'resources' ? ' active' : ''}`}
-            onClick={() => onTabChange('resources')}
+            onClick={() => handleTabChange('resources')}
             aria-current={activeTab === 'resources' ? 'page' : undefined}
             id="nav-resources"
           >
@@ -66,7 +94,7 @@ export default function Navbar({ activeTab, onTabChange }) {
           <button
             type="button"
             className={`nav-link${activeTab === 'about' ? ' active' : ''}`}
-            onClick={() => onTabChange('about')}
+            onClick={() => handleTabChange('about')}
             aria-current={activeTab === 'about' ? 'page' : undefined}
             id="nav-overview"
           >
@@ -76,8 +104,8 @@ export default function Navbar({ activeTab, onTabChange }) {
 
         {/* Status indicator */}
         <div className="header-status">
-          <span className="status-badge" aria-label="Milestone 3C – Booking demo active">
-            Milestone 3C · Booking
+          <span className="status-badge">
+            ADYPU Capstone
           </span>
         </div>
       </div>
