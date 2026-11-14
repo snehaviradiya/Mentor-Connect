@@ -1,0 +1,321 @@
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import * as THREE from 'three';
+import { WebXRManager } from './webxrManager.js';
+import { buildMentorshipRoom, disposeHierarchy } from './VRRoomScene.js';
+import { buildMentorAvatar } from './VRAvatar.js';
+import { buildWhiteboard } from './VRWhiteboard.js';
+import { VRNavigationControls } from './VRNavigationControls.js';
+import VRDesktopOverlay from './VRDesktopOverlay.jsx';
+import { CAMERA_PRESETS, DEFAULT_SLIDES } from './VRRoomConstants.js';
+import './VRRoom.css';
+
+/**
+ * VRMentorshipRoom
+ * 
+ * Hardware-accelerated 3D and WebXR immersive mentorship environment.
+ * Provides interactive slides, stylized 3D mentor representation,
+ * first-person navigation, and genuine WebXR VR headset support.
+ */
+export default function VRMentorshipRoom({ mentor = null, onExit }) {
+  const containerRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [activePreset, setActivePreset] = useState('DEFAULT');
+  const [isVRSupported, setIsVRSupported] = useState(false);
+  const [isVRSessionActive, setIsVRSessionActive] = useState(false);
+
+  // References to active 3D subsystems for interaction & cleanup
+  const systemsRef = useRef({
+    renderer: null,
+    scene: null,
+    camera: null,
+    controls: null,
+    whiteboard: null,
+    avatar: null,
+    webxrManager: null,
+    clock: null,
+    raycaster: new THREE.Raycaster(),
+    mouse: new THREE.Vector2(),
+  });
+
+  // Prepare custom slides based on the active mentor's topics if available
+  const mentorSlides = useMemo(() => {
+    if (!mentor) return DEFAULT_SLIDES;
+    return [
+      {
+        id: 1,
+        badge: mentor.category?.toUpperCase() || 'MENTORSHIP',
+        title: `Mentorship with ${mentor.name}`,
+        subtitle: `${mentor.title || 'Lead Specialist'} • ${mentor.experience || 'Industry Expert'}`,
+        bullets: [
+          `• Focus Domain: ${mentor.category || 'Software Engineering'}`,
+          `• Session Agenda: System Design, Architecture, & Career Direction`,
+          `• Available for Capstone Guidance, Code Reviews, & Mock Interviews`,
+          `• Rate: $${mentor.hourlyRate || 50}/hr • Rating: ${mentor.rating || 5.0}★ (${mentor.reviewCount || 0} reviews)`,
+        ],
+        footer: 'Interactive WebXR Mentorship Room',
+      },
+      ...DEFAULT_SLIDES.slice(1),
+    ];
+  }, [mentor]);
+
+  // Handlers for slide navigation
+  const handlePrevSlide = useCallback(() => {
+    const wb = systemsRef.current.whiteboard;
+    if (wb) {
+      const idx = wb.prevSlide();
+      setCurrentSlide(idx);
+    }
+  }, []);
+
+  const handleNextSlide = useCallback(() => {
+    const wb = systemsRef.current.whiteboard;
+    if (wb) {
+      const idx = wb.nextSlide();
+      setCurrentSlide(idx);
+    }
+  }, []);
+
+  const handleSelectPreset = useCallback((presetKey) => {
+    const controls = systemsRef.current.controls;
+    const preset = CAMERA_PRESETS[presetKey];
+    if (controls && preset) {
+      controls.applyPreset(preset, true);
+      setActivePreset(presetKey);
+    }
+  }, []);
+
+  const handleResetCamera = useCallback(() => {
+    const controls = systemsRef.current.controls;
+    if (controls) {
+      controls.resetView();
+      setActivePreset('DEFAULT');
+    }
+  }, []);
+
+  // WebXR Session Trigger
+  const handleEnterVR = useCallback(async () => {
+    const mgr = systemsRef.current.webxrManager;
+    if (!mgr) return;
+
+    try {
+      if (isVRSessionActive) {
+        await mgr.exitVRSession();
+      } else {
+        await mgr.startVRSession((_event, controller) => {
+          // Trigger click interaction in VR
+          const tempMatrix = new THREE.Matrix4();
+          tempMatrix.identity().extractRotation(controller.matrixWorld);
+
+          const raycaster = systemsRef.current.raycaster;
+          raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+          raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+          const wb = systemsRef.current.whiteboard;
+          if (wb) {
+            const intersects = raycaster.intersectObjects([
+              wb.screenMesh,
+              wb.prevBtnMesh,
+              wb.nextBtnMesh,
+            ]);
+            if (intersects.length > 0) {
+              const newIdx = wb.handleRaycastIntersection(intersects[0].object);
+              if (newIdx !== null) setCurrentSlide(newIdx);
+            }
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('[VRMentorshipRoom] WebXR session request failed:', err);
+    }
+  }, [isVRSessionActive]);
+
+  // Canvas Mouse Click Raycaster for Desktop slide buttons
+  const handleCanvasClick = useCallback((event) => {
+    const canvas = canvasRef.current;
+    const camera = systemsRef.current.camera;
+    const wb = systemsRef.current.whiteboard;
+    if (!canvas || !camera || !wb) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    const raycaster = systemsRef.current.raycaster;
+    raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
+
+    const interactiveObjects = [wb.screenMesh, wb.prevBtnMesh, wb.nextBtnMesh];
+    const intersects = raycaster.intersectObjects(interactiveObjects, false);
+
+    if (intersects.length > 0) {
+      const hit = intersects[0].object;
+      const newIdx = wb.handleRaycastIntersection(hit);
+      if (newIdx !== null) {
+        setCurrentSlide(newIdx);
+      }
+    }
+  }, []);
+
+  // Initialize Three.js scene and lifecycle
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return undefined;
+
+    const width = container.clientWidth || window.innerWidth;
+    const height = container.clientHeight || window.innerHeight;
+
+    // 1. Renderer
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      powerPreference: 'high-performance',
+    });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.xr.enabled = true; // Enables WebXR pipeline
+
+    // 2. Scene & Camera
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x090d16);
+
+    const camera = new THREE.PerspectiveCamera(72, width / height, 0.1, 40);
+    camera.position.set(...CAMERA_PRESETS.DEFAULT.position);
+    camera.lookAt(new THREE.Vector3(...CAMERA_PRESETS.DEFAULT.lookAt));
+
+    // 3. Subsystems
+    const clock = new THREE.Clock();
+    buildMentorshipRoom(scene);
+    const avatar = buildMentorAvatar(scene, mentor);
+    const whiteboard = buildWhiteboard(scene, mentorSlides);
+    const controls = new VRNavigationControls(camera, canvas);
+    const webxrManager = new WebXRManager(renderer, scene, camera);
+
+    // Save references
+    systemsRef.current = {
+      renderer,
+      scene,
+      camera,
+      controls,
+      whiteboard,
+      avatar,
+      webxrManager,
+      clock,
+      raycaster: new THREE.Raycaster(),
+      mouse: new THREE.Vector2(),
+    };
+
+    // 4. WebXR Capability Check & Listener
+    webxrManager.checkSupport().then((supported) => {
+      setIsVRSupported(supported);
+    });
+
+    const unsubscribeXR = webxrManager.onSessionChange((state) => {
+      setIsVRSessionActive(state === 'started');
+    });
+
+    // 5. Add WebXR controller visual rays
+    const rayMat = new THREE.LineBasicMaterial({
+      color: 0x14b8a6,
+      transparent: true,
+      opacity: 0.7,
+    });
+    const rayPoints = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -2.5)];
+    const rayGeo = new THREE.BufferGeometry().setFromPoints(rayPoints);
+
+    for (let i = 0; i < 2; i++) {
+      const controller = renderer.xr.getController(i);
+      const rayLine = new THREE.Line(rayGeo, rayMat);
+      rayLine.name = `ControllerRay_${i}`;
+      controller.add(rayLine);
+      scene.add(controller);
+    }
+
+    // 6. Animation Render Loop (works for both Desktop 3D and WebXR 60/90/120Hz frames)
+    renderer.setAnimationLoop(() => {
+      const delta = Math.min(clock.getDelta(), 0.1);
+      const elapsed = clock.getElapsedTime();
+
+      controls.update(delta);
+      avatar.update(elapsed);
+
+      renderer.render(scene, camera);
+    });
+
+    // 7. Window resize handling
+    const handleResize = () => {
+      if (!container) return;
+      const w = container.clientWidth || window.innerWidth;
+      const h = container.clientHeight || window.innerHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    };
+    window.addEventListener('resize', handleResize);
+
+    // 8. Keyboard navigation shortcuts
+    const handleKeyDown = (e) => {
+      if (e.code === 'KeyR') {
+        controls.resetView();
+        setActivePreset('DEFAULT');
+      } else if (e.code === 'Space') {
+        const idx = whiteboard.nextSlide();
+        setCurrentSlide(idx);
+      } else if (e.code === 'Escape' && onExit) {
+        onExit();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('keydown', handleKeyDown);
+      unsubscribeXR();
+
+      renderer.setAnimationLoop(null);
+      controls.dispose();
+      whiteboard.dispose();
+      webxrManager.dispose();
+      disposeHierarchy(scene);
+      renderer.dispose();
+      rayGeo.dispose();
+      rayMat.dispose();
+    };
+  }, [mentor, mentorSlides, onExit]);
+
+  return (
+    <div
+      className="vr-room-wrapper"
+      ref={containerRef}
+      role="region"
+      aria-label="3D Immersive Mentorship Environment"
+    >
+      <canvas
+        ref={canvasRef}
+        className="vr-canvas"
+        onClick={handleCanvasClick}
+        tabIndex={0}
+        aria-label="Interactive 3D mentorship canvas. Use WASD or arrows to navigate, left click and drag to look around."
+      />
+
+      <VRDesktopOverlay
+        currentSlide={currentSlide}
+        totalSlides={mentorSlides.length}
+        onPrevSlide={handlePrevSlide}
+        onNextSlide={handleNextSlide}
+        onSelectPreset={handleSelectPreset}
+        activePreset={activePreset}
+        onResetCamera={handleResetCamera}
+        onEnterVR={handleEnterVR}
+        isVRSupported={isVRSupported}
+        isVRSessionActive={isVRSessionActive}
+        onExit={onExit}
+        mentor={mentor}
+      />
+    </div>
+  );
+}
