@@ -3,6 +3,7 @@ import ReviewModal from './ReviewModal.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import UpcomingEvents from './UpcomingEvents.jsx';
 import { cancelBooking, fetchStudentDashboard, fetchSessions } from '../services/api.js';
+import Icon from './Icon.jsx';
 
 const DEFAULT_LEARNING_GOALS = [
   {
@@ -92,10 +93,10 @@ function formatGoalDeadline(deadline) {
 }
 
 const SESSION_COLUMNS = [
-  { id: 'upcoming', title: 'Upcoming Sessions', icon: '🗓️' },
-  { id: 'pending', title: 'Pending Sessions', icon: '⏳' },
-  { id: 'completed', title: 'Past Sessions & Reviews', icon: '⭐' },
-  { id: 'cancelled', title: 'Cancelled Sessions', icon: '↩️' },
+  { id: 'upcoming', title: 'Upcoming Sessions', icon: 'calendar' },
+  { id: 'pending', title: 'Pending Sessions', icon: 'clock' },
+  { id: 'completed', title: 'Past Sessions & Reviews', icon: 'star' },
+  { id: 'cancelled', title: 'Cancelled Sessions', icon: 'rotate' },
 ];
 
 function SessionBoardCard({
@@ -135,7 +136,7 @@ function SessionBoardCard({
         </p>
         <div className="session-meta-row">
           <span className="session-time-chip">
-            {isCompleted ? '✓ Completed on' : '📅'} {session.date}{!isCompleted && ` · ${session.time}`}
+            {isCompleted ? <><Icon name="check" /> Completed on</> : <><Icon name="calendar" /> </>}{' '}{session.date}{!isCompleted && ` · ${session.time}`}
           </span>
         </div>
       </div>
@@ -527,7 +528,7 @@ export default function StudentDashboard({
             id="quick-book-button"
             aria-label="Quick Book Consultation Session"
           >
-            ⚡ Quick Book Session
+            <Icon name="bolt" /> Quick Book Session
           </button>
         </div>
       </section>
@@ -535,7 +536,7 @@ export default function StudentDashboard({
       {/* Metrics Row */}
       <section className="dashboard-stats-grid" aria-label="Learning Metrics Overview">
         <div className="stat-card stat-card-mentors">
-          <span className="stat-icon" aria-hidden="true">🌟</span>
+          <span className="stat-icon"><Icon name="sparkles" /></span>
           <div>
             <div className="stat-value">{mentors.length}</div>
             <div className="stat-label">Expert Mentors</div>
@@ -543,7 +544,7 @@ export default function StudentDashboard({
         </div>
 
         <div className="stat-card stat-card-sessions">
-          <span className="stat-icon" aria-hidden="true">📅</span>
+          <span className="stat-icon"><Icon name="calendar" /></span>
           <div>
             <div className="stat-value">{sessions.length}</div>
             <div className="stat-label">Upcoming Sessions</div>
@@ -551,7 +552,7 @@ export default function StudentDashboard({
         </div>
 
         <div className="stat-card stat-card-completed">
-          <span className="stat-icon" aria-hidden="true">✓</span>
+          <span className="stat-icon"><Icon name="check" /></span>
           <div>
             <div className="stat-value">{completedSessions.filter((session) => session.completed).length}</div>
             <div className="stat-label">Completed Bookings</div>
@@ -559,7 +560,7 @@ export default function StudentDashboard({
         </div>
 
         <div className="stat-card stat-card-goals">
-          <span className="stat-icon" aria-hidden="true">🎯</span>
+          <span className="stat-icon"><Icon name="target" /></span>
           <div>
             <div className="stat-value">{completedGoalCount} / {goals.length}</div>
             <div className="stat-label">Goals Completed</div>
@@ -574,7 +575,7 @@ export default function StudentDashboard({
           <section className="dashboard-panel session-management-panel" aria-labelledby="session-board-heading">
             <div className="panel-header">
               <div className="panel-title-group">
-                <span className="panel-icon" aria-hidden="true">🗂️</span>
+                <span className="panel-icon"><Icon name="layers" /></span>
                 <h2 id="session-board-heading" className="panel-title">Session Management Board</h2>
               </div>
               <span className="badge-count">
@@ -608,7 +609,7 @@ export default function StudentDashboard({
                   >
                     <div className="session-board-column-header">
                       <h3 id={`session-column-${column.id}`}>
-                        <span aria-hidden="true">{column.icon}</span>
+                        <Icon name={column.icon} />
                         {column.title}
                       </h3>
                       <span className="session-board-count">{columnSessions.length}</span>
@@ -653,7 +654,7 @@ export default function StudentDashboard({
           <section className="dashboard-panel" aria-labelledby="goals-heading">
             <div className="panel-header">
               <div className="panel-title-group">
-                <span className="panel-icon" aria-hidden="true">🎯</span>
+                <span className="panel-icon"><Icon name="target" /></span>
                 <h2 id="goals-heading" className="panel-title">
                   My Goals Dashboard
                 </h2>
@@ -829,7 +830,7 @@ export default function StudentDashboard({
           <section className="dashboard-panel" aria-labelledby="recommended-heading">
             <div className="panel-header">
               <div className="panel-title-group">
-                <span className="panel-icon" aria-hidden="true">💡</span>
+                <span className="panel-icon"><Icon name="lightbulb" /></span>
                 <h2 id="recommended-heading" className="panel-title">
                   Recommended Mentors
                 </h2>
@@ -880,7 +881,7 @@ export default function StudentDashboard({
           <section className="dashboard-panel" aria-labelledby="recent-heading">
             <div className="panel-header">
               <div className="panel-title-group">
-                <span className="panel-icon" aria-hidden="true">👀</span>
+                <span className="panel-icon"><Icon name="search" /></span>
                 <h2 id="recent-heading" className="panel-title">
                   Recently Viewed
                 </h2>
