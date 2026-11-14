@@ -4,7 +4,7 @@ import EditProfileModal from './EditProfileModal.jsx';
 import ReviewModal from './ReviewModal.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 
-export default function MentorProfile({ mentor, onBack, onUpdateMentor }) {
+export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookingSuccess }) {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -440,6 +440,7 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor }) {
         <BookingModal
           mentor={mentor}
           onClose={handleCloseBookingModal}
+          onBookingSuccess={onBookingSuccess}
         />
       )}
 

@@ -13,7 +13,7 @@ function getTodayDateString() {
   return `${year}-${month}-${day}`;
 }
 
-export default function BookingModal({ mentor, onClose }) {
+export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
   const modalRef = useRef(null);
   const firstInputRef = useRef(null);
   const toast = useToast();
@@ -177,6 +177,7 @@ export default function BookingModal({ mentor, onClose }) {
           notes: payload.notes,
         });
         setSubmissionResult('success');
+        onBookingSuccess?.();
         toast.bookingApproved(
           `Demo session booked with ${mentor.name} for ${sessionDate} at ${timeSlotLabel}!`,
           'Session Confirmed'
@@ -207,6 +208,12 @@ export default function BookingModal({ mentor, onClose }) {
         const notFoundMsg = err.message || 'Mentor not found on server.';
         setServerError(notFoundMsg);
         toast.error(notFoundMsg, 'Mentor Not Found');
+      } else if (err.status === 401 || err.code === 'TOKEN_INVALID' || err.code === 'UNAUTHORIZED') {
+        window.sessionStorage.removeItem('mentor_connect_token');
+        window.sessionStorage.removeItem('mentor_connect_user');
+        const authMsg = 'Your sign-in session expired. Create an account again before booking so the session is linked to you.';
+        setServerError(authMsg);
+        toast.error(authMsg, 'Sign-in Required');
       } else if (err.code === 'NETWORK_ERROR') {
         const netMsg =
           err.message || 'Unable to connect to the server. Please check your network connection.';

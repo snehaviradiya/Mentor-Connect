@@ -57,11 +57,18 @@ async function handleResponse(response) {
  */
 export async function createBooking(payload) {
   try {
+    const token = window.sessionStorage.getItem('mentor_connect_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      const authResponse = await fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      await handleResponse(authResponse);
+      headers.Authorization = `Bearer ${token}`;
+    }
     const response = await fetch('/api/bookings', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 
@@ -75,6 +82,33 @@ export async function createBooking(payload) {
       0,
       'NETWORK_ERROR'
     );
+  }
+}
+
+/** Fetches the authenticated student's profile and booking partitions. */
+export async function fetchStudentDashboard(token) {
+  try {
+    const response = await fetch('/api/dashboard/student', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return await handleResponse(response);
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(error.message || 'Unable to load your dashboard.', 0, 'NETWORK_ERROR');
+  }
+}
+
+/** Cancels a booking belonging to the authenticated student. */
+export async function cancelBooking(bookingId, token) {
+  try {
+    const response = await fetch(`/api/bookings/${encodeURIComponent(bookingId)}/cancel`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return await handleResponse(response);
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(error.message || 'Unable to cancel this booking.', 0, 'NETWORK_ERROR');
   }
 }
 

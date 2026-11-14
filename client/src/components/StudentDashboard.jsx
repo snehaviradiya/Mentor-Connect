@@ -1,9 +1,8 @@
-import { useState, useMemo } from 'react';
-import MentorCard from './MentorCard.jsx';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import ReviewModal from './ReviewModal.jsx';
 import { useToast } from '../context/ToastContext.jsx';
-import { INITIAL_UPCOMING_SESSIONS } from '../data/mockSessions.js';
 import UpcomingEvents from './UpcomingEvents.jsx';
+import { cancelBooking, fetchStudentDashboard, fetchSessions } from '../services/api.js';
 
 const DEFAULT_LEARNING_GOALS = [
   {
@@ -92,60 +91,10 @@ function formatGoalDeadline(deadline) {
   }).format(new Date(`${deadline}T00:00:00`));
 }
 
-const INITIAL_COMPLETED_SESSIONS = [
-  {
-    id: 'comp-1',
-    mentorId: 'mentor-1',
-    mentorName: 'Aarav Sharma',
-    mentorRole: 'Senior Frontend Engineer @ Fintech Labs',
-    topic: 'React 19 Server Components & State Management',
-    date: 'Oct 28, 2026',
-    time: '10:00 AM – 11:00 AM IST',
-    status: 'Completed',
-    hasReviewed: true,
-    userRating: 5,
-  },
-  {
-    id: 'comp-2',
-    mentorId: 'mentor-2',
-    mentorName: 'Dr. Priya Kulkarni',
-    mentorRole: 'Assistant Professor & AI Researcher',
-    topic: 'Capstone LLM Agent Evaluation & Fine-Tuning',
-    date: 'Nov 02, 2026',
-    time: '02:00 PM – 03:00 PM IST',
-    status: 'Completed',
-    hasReviewed: false,
-  },
-  {
-    id: 'comp-3',
-    mentorId: 'mentor-5',
-    mentorName: 'Vikram Joshi',
-    mentorRole: 'Principal Backend Engineer',
-    topic: 'PostgreSQL Database Indexing & Concurrency',
-    date: 'Nov 04, 2026',
-    time: '05:00 PM – 06:00 PM IST',
-    status: 'Completed',
-    hasReviewed: false,
-  },
-];
-
-const INITIAL_PENDING_SESSIONS = [
-  {
-    id: 'pending-1',
-    mentorId: 'mentor-4',
-    mentorName: 'Ananya Verma',
-    mentorRole: 'Lead Product Designer @ Creative Studio',
-    topic: 'Portfolio Review & Design Systems',
-    date: 'Nov 20, 2026',
-    time: '03:00 PM – 04:00 PM IST',
-    status: 'Pending confirmation',
-  },
-];
-
 const SESSION_COLUMNS = [
   { id: 'upcoming', title: 'Upcoming Sessions', icon: '🗓️' },
   { id: 'pending', title: 'Pending Sessions', icon: '⏳' },
-  { id: 'completed', title: 'Completed Sessions & Reviews', icon: '⭐' },
+  { id: 'completed', title: 'Past Sessions & Reviews', icon: '⭐' },
   { id: 'cancelled', title: 'Cancelled Sessions', icon: '↩️' },
 ];
 
@@ -157,12 +106,15 @@ function SessionBoardCard({
   onCancel,
   onReview,
   onViewProfile,
+  isCancelling = false,
 }) {
-  const isCompleted = status === 'completed';
+  const isCompleted = status === 'completed' && session.completed;
   const isUpcoming = status === 'upcoming';
   const statusLabel = isCompleted
     ? 'Completed'
-    : isUpcoming
+    : status === 'completed'
+      ? 'Past'
+      : isUpcoming
       ? session.status
       : status === 'pending'
         ? 'Awaiting confirmation'
@@ -190,21 +142,22 @@ function SessionBoardCard({
 
       {isUpcoming && (
         <div className="session-actions">
-          <button
+          {session.hasLiveSession && <button
             type="button"
             className="btn-workspace"
             onClick={() => onOpenWorkspace?.(session)}
             aria-label={`Open workspace for ${session.topic}`}
           >
             Open Workspace
-          </button>
-          <button type="button" className="btn-join-session" onClick={() => onJoinMeeting(session)}>
+          </button>}
+          {session.hasLiveSession && <button type="button" className="btn-join-session" onClick={() => onJoinMeeting(session)}>
             Join Room
-          </button>
+          </button>}
           <button
             type="button"
             className="btn-cancel-session"
             onClick={() => onCancel(session, status)}
+            disabled={isCancelling}
             aria-label={`Cancel session with ${session.mentorName}`}
           >
             Cancel
@@ -218,6 +171,7 @@ function SessionBoardCard({
             type="button"
             className="btn-cancel-session"
             onClick={() => onCancel(session, status)}
+            disabled={isCancelling}
             aria-label={`Cancel pending session with ${session.mentorName}`}
           >
             Cancel request
@@ -260,6 +214,8 @@ export default function StudentDashboard({
   onQuickBookMentor,
   onAddReview,
   onOpenWorkspace,
+  refreshKey = 0,
+  onOpenSignup,
 }) {
   const toast = useToast();
   const [goals, setGoals] = useState(DEFAULT_LEARNING_GOALS);
@@ -268,20 +224,113 @@ export default function StudentDashboard({
   const [newGoalDeadline, setNewGoalDeadline] = useState('');
   const [newGoalMilestones, setNewGoalMilestones] = useState('');
   const [isAddingGoal, setIsAddingGoal] = useState(false);
-  const [sessions, setSessions] = useState(INITIAL_UPCOMING_SESSIONS);
-  const [pendingSessions, setPendingSessions] = useState(INITIAL_PENDING_SESSIONS);
+  const [sessions, setSessions] = useState([]);
+  const [pendingSessions] = useState([]);
   const [cancelledSessions, setCancelledSessions] = useState([]);
-  const [completedSessions, setCompletedSessions] = useState(INITIAL_COMPLETED_SESSIONS);
+  const [completedSessions, setCompletedSessions] = useState([]);
   const [reviewingSession, setReviewingSession] = useState(null);
+  const [student, setStudent] = useState(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState('');
+  const [authRequired, setAuthRequired] = useState(false);
+  const [cancellingId, setCancellingId] = useState(null);
+  const dashboardRequestRef = useRef({ sequence: 0, promise: null });
 
-  // Student profile mock
-  const student = {
-    name: 'Jiya Srivastava',
-    email: 'jiya@adypu.edu.in',
-    department: 'Computer Engineering',
-    year: 'Final Year Capstone',
-    avatarInitials: 'JS',
-  };
+  const loadDashboard = useCallback((force = false) => {
+    if (!force && dashboardRequestRef.current.promise) return dashboardRequestRef.current.promise;
+    const requestId = ++dashboardRequestRef.current.sequence;
+    const token = window.sessionStorage.getItem('mentor_connect_token');
+    if (!token) {
+      setStudent(null);
+      setSessions([]);
+      setCompletedSessions([]);
+      setCancelledSessions([]);
+      setAuthRequired(true);
+      setDashboardError('Create a student account to view your bookings.');
+      setDashboardLoading(false);
+      return Promise.resolve();
+    }
+
+    setDashboardLoading(true);
+    setDashboardError('');
+    setAuthRequired(false);
+    const request = (async () => {
+    try {
+      const [dashboardResponse, sessionResponse] = await Promise.all([
+        fetchStudentDashboard(token),
+        fetchSessions(undefined, token),
+      ]);
+      const data = dashboardResponse?.data?.student;
+      if (!data?.profile || !Array.isArray(data.upcomingSessions) ||
+        !Array.isArray(data.pastSessions) || !Array.isArray(data.cancelledSessions)) {
+        throw new Error('The dashboard response was incomplete. Please try again.');
+      }
+      const liveSessions = sessionResponse?.data?.sessions;
+      if (!Array.isArray(liveSessions)) throw new Error('The session response was incomplete. Please try again.');
+      if (requestId !== dashboardRequestRef.current.sequence) return;
+      const sessionByBooking = new Map(liveSessions.map((item) => [item.bookingId, item]));
+      const toCard = (booking, completed = false) => {
+        const live = sessionByBooking.get(booking.bookingId);
+        const mentor = booking.mentor;
+        return {
+          id: live?.id || booking.bookingId,
+          hasLiveSession: Boolean(live?.id),
+          bookingId: booking.bookingId,
+          mentorId: mentor.id,
+          mentorName: mentor.name,
+          mentorRole: mentor.title || mentor.category || 'Mentor',
+          topic: booking.sessionTopic,
+          date: new Intl.DateTimeFormat('en', { month: 'short', day: '2-digit', year: 'numeric', timeZone: 'UTC' })
+            .format(new Date(`${booking.sessionDate}T00:00:00Z`)),
+          time: booking.timeSlot,
+          status: live?.status === 'IN_PROGRESS' ? 'In progress' : 'Confirmed',
+          hasReviewed: (live?.reviewCount || 0) > 0,
+          backendStatus: live?.status,
+          completed,
+        };
+      };
+      setStudent({
+        name: data.profile.name,
+        email: data.profile.email,
+        department: data.profile.major || data.profile.university || 'Student',
+        year: data.profile.graduationYear ? `Class of ${data.profile.graduationYear}` : 'Student account',
+        avatarInitials: (data.profile.name || 'S').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase(),
+      });
+      const upcoming = data.upcomingSessions.map((booking) => toCard(booking));
+      const pastBookings = data.pastSessions.map((booking) => toCard(
+        booking,
+        booking.status === 'completed' || sessionByBooking.get(booking.bookingId)?.status === 'COMPLETED'
+      ));
+      const cancelled = data.cancelledSessions.map((booking) => ({ ...toCard(booking), status: 'Cancelled' }));
+      const completedIds = new Set(liveSessions.filter((item) => item.status === 'COMPLETED').map((item) => item.bookingId));
+      setSessions(upcoming.filter((item) => !completedIds.has(item.bookingId)));
+      setCompletedSessions([...pastBookings, ...upcoming.filter((item) => completedIds.has(item.bookingId))]);
+      setCancelledSessions(cancelled);
+    } catch (error) {
+      if (requestId !== dashboardRequestRef.current.sequence) return;
+      setDashboardError(error.message || 'Unable to load your dashboard.');
+      if ([401, 403].includes(error.status) || ['UNAUTHORIZED', 'TOKEN_INVALID', 'USER_NOT_FOUND'].includes(error.code)) {
+        window.sessionStorage.removeItem('mentor_connect_token');
+        window.sessionStorage.removeItem('mentor_connect_user');
+        setStudent(null);
+        setSessions([]);
+        setCompletedSessions([]);
+        setCancelledSessions([]);
+        setAuthRequired(true);
+      }
+    } finally {
+      if (requestId === dashboardRequestRef.current.sequence) setDashboardLoading(false);
+    }
+    })();
+    dashboardRequestRef.current.promise = request;
+    return request.finally(() => {
+      if (dashboardRequestRef.current.promise === request) dashboardRequestRef.current.promise = null;
+    });
+  }, []);
+
+  useEffect(() => { loadDashboard(refreshKey > 0); }, [loadDashboard, refreshKey]);
+
+  const displayedStudent = student || { name: 'Student', email: '', department: '', year: '', avatarInitials: 'S' };
 
   // Curated recommended mentors (top mentors by rating/expertise)
   const recommendedMentors = useMemo(() => {
@@ -366,14 +415,33 @@ export default function StudentDashboard({
     toast.success('New goal and milestones added to your dashboard!', 'Goal Added');
   };
 
-  const handleCancelSession = (session, status) => {
-    const updateSessions = status === 'pending' ? setPendingSessions : setSessions;
-    updateSessions((prev) => prev.filter((item) => item.id !== session.id));
-    setCancelledSessions((prev) => [{ ...session, status: 'Cancelled' }, ...prev]);
-    if (toast.bookingCancelled) {
-      toast.bookingCancelled(`Session with ${session.mentorName} has been cancelled.`, 'Session Cancelled');
-    } else {
-      toast.warning(`Session with ${session.mentorName} has been cancelled.`, 'Session Cancelled');
+  const handleCancelSession = async (session) => {
+    const token = window.sessionStorage.getItem('mentor_connect_token');
+    if (!token || !session.bookingId) {
+      setDashboardError('Sign in with a student account to cancel this booking.');
+      setAuthRequired(true);
+      return;
+    }
+    setCancellingId(session.bookingId);
+    try {
+      await cancelBooking(session.bookingId, token);
+      await loadDashboard(true);
+      toast.bookingCancelled?.(`Session with ${session.mentorName} has been cancelled.`, 'Session Cancelled');
+    } catch (error) {
+      if ([401, 403].includes(error.status) || ['UNAUTHORIZED', 'TOKEN_INVALID', 'USER_NOT_FOUND'].includes(error.code)) {
+        window.sessionStorage.removeItem('mentor_connect_token');
+        window.sessionStorage.removeItem('mentor_connect_user');
+        setStudent(null);
+        setSessions([]);
+        setCompletedSessions([]);
+        setCancelledSessions([]);
+        setAuthRequired(true);
+        setDashboardError('Your sign-in session expired. Please create an account again to continue.');
+      } else {
+        toast.error(error.message || 'Could not cancel this booking. Please try again.', 'Cancellation Failed');
+      }
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -405,13 +473,9 @@ export default function StudentDashboard({
     if (!reviewingSession) return;
     const targetMentorId = reviewingSession.mentor?.id || reviewingSession.mentorId;
 
-    setCompletedSessions((prev) =>
-      prev.map((s) =>
-        s.id === reviewingSession.id
-          ? { ...s, hasReviewed: true, userRating: newReview.rating }
-          : s
-      )
-    );
+    setCompletedSessions((prev) => prev.map((s) =>
+      s.id === reviewingSession.id ? { ...s, hasReviewed: true, userRating: newReview.rating } : s
+    ));
 
     if (onAddReview) {
       onAddReview(targetMentorId, newReview);
@@ -442,15 +506,15 @@ export default function StudentDashboard({
         <span className="dashboard-float-shape dashboard-float-shape-two" aria-hidden="true" />
         <div className="hero-left">
           <div className="student-badge-avatar" aria-hidden="true">
-            {student.avatarInitials}
+              {displayedStudent.avatarInitials}
           </div>
           <div className="welcome-meta">
             <span className="welcome-tag">Student Capstone Portal</span>
             <h1 id="welcome-back-heading" className="welcome-heading">
-              Welcome back, {student.name}!
+              Welcome back, {displayedStudent.name}!
             </h1>
             <p className="welcome-subtext">
-              {student.department} • {student.year} • {student.email}
+              {[displayedStudent.department, displayedStudent.year, displayedStudent.email].filter(Boolean).join(' • ')}
             </p>
           </div>
         </div>
@@ -489,7 +553,7 @@ export default function StudentDashboard({
         <div className="stat-card stat-card-completed">
           <span className="stat-icon" aria-hidden="true">✓</span>
           <div>
-            <div className="stat-value">{completedSessions.length}</div>
+            <div className="stat-value">{completedSessions.filter((session) => session.completed).length}</div>
             <div className="stat-label">Completed Bookings</div>
           </div>
         </div>
@@ -519,7 +583,16 @@ export default function StudentDashboard({
             </div>
             <p className="panel-caption">Track your mentorship sessions by status.</p>
 
-            <div className="session-board" aria-label="Sessions grouped by status">
+            {dashboardLoading && <p role="status" className="session-board-empty">Loading your bookings…</p>}
+            {!dashboardLoading && dashboardError && (
+              <div role="alert" className="session-board-empty dashboard-load-error">
+                <p>{dashboardError}</p>
+                {!authRequired && <button type="button" className="btn-link-action" onClick={() => loadDashboard(true)}>Try again</button>}
+                {authRequired && onOpenSignup && <button type="button" className="btn-link-action" onClick={onOpenSignup}>Create student account</button>}
+              </div>
+            )}
+
+            <div className="session-board" aria-label="Sessions grouped by status" aria-busy={dashboardLoading}>
               {SESSION_COLUMNS.map((column) => {
                 const columnSessions = {
                   upcoming: sessions,
@@ -549,16 +622,21 @@ export default function StudentDashboard({
                             status={column.id}
                             onOpenWorkspace={onOpenWorkspace}
                             onJoinMeeting={handleJoinMeeting}
-                            onCancel={handleCancelSession}
+                            onCancel={(item, itemStatus) => handleCancelSession(item, itemStatus)}
                             onReview={handleOpenReview}
                             onViewProfile={(mentorId) => onSelectMentor?.(mentorId)}
+                            isCancelling={cancellingId === session.bookingId}
                           />
                         ))
-                      ) : (
-                        <p className="session-board-empty">No {column.title.toLowerCase()}.</p>
-                      )}
+                      ) : !dashboardLoading && !dashboardError ? (
+                        <p className="session-board-empty">
+                          {column.id === 'pending'
+                            ? 'Pending requests are not provided by the booking service.'
+                            : `No ${column.title.toLowerCase()}.`}
+                        </p>
+                      ) : null}
                     </div>
-                    {column.id === 'upcoming' && columnSessions.length === 0 && (
+                    {column.id === 'upcoming' && !dashboardLoading && !dashboardError && columnSessions.length === 0 && (
                       <button type="button" className="btn-link-action" onClick={handleQuickBook}>
                         Schedule a session →
                       </button>

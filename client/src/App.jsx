@@ -28,6 +28,7 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
   const [workspaceSession, setWorkspaceSession] = useState(null);
   const [selectedAvailability, setSelectedAvailability] = useState(null);
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
+  const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
   const [mentors, setMentors] = useState(initialMentors);
   const listingsRef = useRef(null);
   const toast = useToast();
@@ -197,6 +198,7 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
               mentor={selectedMentor}
               onBack={() => setSelectedMentorId(null)}
               onUpdateMentor={handleUpdateMentor}
+              onBookingSuccess={() => setDashboardRefreshKey((key) => key + 1)}
             />
           ) : (
             /* Mentor Discovery Directory View */
@@ -339,6 +341,8 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
         ) : activeTab === 'dashboard' ? (
           <StudentDashboard
             mentors={mentors}
+            refreshKey={dashboardRefreshKey}
+            onOpenSignup={() => setIsRegistrationOpen(true)}
             onOpenWorkspace={(session) => {
               setWorkspaceSession(session);
               setActiveTab('workspace');
@@ -378,10 +382,14 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
         <BookingModal
           mentor={quickBookingMentor}
           onClose={() => setQuickBookingMentor(null)}
+          onBookingSuccess={() => setDashboardRefreshKey((key) => key + 1)}
         />
       )}
       {isRegistrationOpen && (
-        <RegistrationModal onClose={() => setIsRegistrationOpen(false)} />
+        <RegistrationModal onClose={() => {
+          setIsRegistrationOpen(false);
+          setDashboardRefreshKey((key) => key + 1);
+        }} />
       )}
 
       {/* Footer */}

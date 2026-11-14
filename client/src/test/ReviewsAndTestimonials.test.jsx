@@ -6,9 +6,27 @@ import ReviewModal from '../components/ReviewModal.jsx';
 import { ToastProvider } from '../context/ToastContext.jsx';
 import { MOCK_MENTORS } from '../data/mockMentors.js';
 
+vi.mock('../services/api.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    fetchStudentDashboard: vi.fn().mockResolvedValue({ status: 'success', data: { student: {
+      profile: { id: 'mentee-test', name: 'Jiya Srivastava', email: 'jiya@example.test', major: 'Engineering', graduationYear: 2027 },
+      summary: { totalBookings: 1, upcomingSessions: 0, pastSessions: 1, cancelledSessions: 0 },
+      upcomingSessions: [],
+      pastSessions: [{ bookingId: 'booking-completed', mentor: { id: 'mentor-2', name: 'Dr. Priya Kulkarni', title: 'AI Researcher', category: 'AI' }, sessionDate: '2026-10-01', timeSlot: '10:00 AM – 11:00 AM IST', sessionTopic: 'LLM evaluation', status: 'completed' }],
+      cancelledSessions: [],
+    } } }),
+    fetchSessions: vi.fn().mockResolvedValue({ status: 'success', data: { sessions: [
+      { id: 'session-completed', bookingId: 'booking-completed', status: 'COMPLETED', reviewCount: 0 },
+    ], total: 1 } }),
+  };
+});
+
 describe('Reviews and Testimonials System', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.sessionStorage.setItem('mentor_connect_token', 'student-token');
   });
 
   const sampleMentor = MOCK_MENTORS[0]; // Aarav Sharma with verified reviews
@@ -115,11 +133,11 @@ describe('Reviews and Testimonials System', () => {
 
     // Check Completed Sessions heading
     expect(
-      screen.getByRole('heading', { name: /Completed Sessions & Reviews/i })
+      screen.getByRole('heading', { name: /Past Sessions & Reviews/i })
     ).toBeInTheDocument();
 
     // Find the Rate & Write Review button for Dr. Priya Kulkarni
-    const rateBtn = screen.getByRole('button', {
+    const rateBtn = await screen.findByRole('button', {
       name: /Rate and review session with Dr. Priya Kulkarni/i,
     });
     expect(rateBtn).toBeInTheDocument();

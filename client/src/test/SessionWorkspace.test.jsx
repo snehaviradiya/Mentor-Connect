@@ -1,8 +1,26 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import SessionWorkspace from '../components/SessionWorkspace.jsx';
 import App from '../App.jsx';
 import { ToastProvider } from '../context/ToastContext.jsx';
+
+vi.mock('../services/api.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    fetchMentors: vi.fn().mockRejectedValue(new Error('Offline')),
+    fetchStudentDashboard: vi.fn().mockResolvedValue({ status: 'success', data: { student: {
+      profile: { id: 'mentee-test', name: 'Asha Student', email: 'asha@example.test', major: 'Robotics', graduationYear: 2027 },
+      summary: { totalBookings: 1, upcomingSessions: 1, pastSessions: 0, cancelledSessions: 0 },
+      upcomingSessions: [{ bookingId: 'booking-workspace', mentor: { id: 'mentor-1', name: 'Aarav Sharma', title: 'Frontend Mentor', category: 'Software Engineering' }, sessionDate: '2026-12-01', timeSlot: '10:00 AM – 11:00 AM IST', sessionTopic: 'React Architecture & State Performance Review', status: 'confirmed' }],
+      pastSessions: [],
+      cancelledSessions: [],
+    } } }),
+    fetchSessions: vi.fn().mockResolvedValue({ status: 'success', data: { sessions: [
+      { id: 'sess-dashboard-test', bookingId: 'booking-workspace', status: 'SCHEDULED', reviewCount: 0 },
+    ], total: 1 } }),
+  };
+});
 
 const session = {
   id: 'sess-test',
@@ -24,6 +42,7 @@ function renderWorkspace(activeSession = session) {
 describe('Session workspace', () => {
   beforeEach(() => {
     localStorage.clear();
+    window.sessionStorage.setItem('mentor_connect_token', 'student-token');
   });
 
   it('renders the session tools and persists notes, resources, and action items per session', () => {
@@ -95,12 +114,10 @@ describe('Session workspace', () => {
     ).toHaveLength(0);
   });
 
-  it('opens a session workspace from the dashboard and returns to the dashboard', () => {
+  it('opens a session workspace from the dashboard and returns to the dashboard', async () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }));
-    fireEvent.click(
-      screen.getByRole('button', { name: /Open Workspace for React Architecture & State Performance Review/i })
-    );
+    fireEvent.click(await screen.findByRole('button', { name: /Open Workspace for React Architecture & State Performance Review/i }));
 
     expect(
       screen.getByRole('heading', { name: 'React Architecture & State Performance Review' })
