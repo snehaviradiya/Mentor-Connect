@@ -5,7 +5,7 @@ import ReviewModal from './ReviewModal.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import Icon from './Icon.jsx';
 
-export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookingSuccess }) {
+export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookingSuccess, onEnterVR }) {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -28,41 +28,42 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
   };
 
   const reviewStats = useMemo(() => {
+    const emptyDistribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     if (!mentor) {
-      return {
-        avg: '5.0',
-        count: 0,
-        distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
-        recommendPct: 100,
-      };
+      return { avg: null, count: 0, distribution: emptyDistribution, recommendPct: null, hasBreakdown: false };
     }
-    const list = mentor.reviews || [];
-    const count = list.length;
-    if (count === 0) {
-      return {
-        avg: mentor.rating ? Number(mentor.rating).toFixed(1) : '5.0',
-        count: mentor.reviewCount || 0,
-        distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
-        recommendPct: 100,
-      };
-    }
-    const sum = list.reduce((acc, r) => acc + (Number(r.rating) || 5), 0);
-    const avg = (sum / count).toFixed(1);
+    const reviews = Array.isArray(mentor.reviews) ? mentor.reviews : [];
+    const ratings = reviews
+      .map((review) => Number(review.rating))
+      .filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5);
+    const suppliedRating = mentor.rating == null ? NaN : Number(mentor.rating);
+    const hasSuppliedRating = Number.isFinite(suppliedRating) && suppliedRating >= 1 && suppliedRating <= 5;
+    const suppliedCount = mentor.reviewCount == null ? 0 : Number(mentor.reviewCount);
+    const count = Math.max(reviews.length, Number.isFinite(suppliedCount) ? suppliedCount : 0);
+    const average = ratings.length
+      ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
+      : hasSuppliedRating ? suppliedRating : null;
     const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-    list.forEach((r) => {
-      const star = Math.min(5, Math.max(1, Math.round(Number(r.rating) || 5)));
+    ratings.forEach((rating) => {
+      const star = Math.round(rating);
       distribution[star] = (distribution[star] || 0) + 1;
     });
     const highRatings = (distribution[5] || 0) + (distribution[4] || 0);
-    const recommendPct = Math.round((highRatings / count) * 100);
-    return { avg, count, distribution, recommendPct };
-  }, [mentor?.reviews, mentor?.rating, mentor?.reviewCount]);
+    return {
+      avg: average === null ? null : average.toFixed(1),
+      count,
+      ratingCount: ratings.length,
+      distribution,
+      recommendPct: ratings.length ? Math.round((highRatings / ratings.length) * 100) : null,
+      hasBreakdown: ratings.length > 0,
+    };
+  }, [mentor]);
 
   // Graceful fallback for invalid or missing mentor
   if (!mentor) {
     return (
       <div className="profile-error-container" role="alert">
-        <div className="error-icon" aria-hidden="true">⚠️</div>
+        <div className="error-icon" aria-hidden="true"><Icon name="alert" /></div>
         <h2 className="error-title">Mentor Profile Not Found</h2>
         <p className="error-message">
           The requested mentor could not be found. The profile may have been removed or the link may be invalid.
@@ -118,10 +119,12 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
 
         <nav aria-label="Breadcrumb" className="profile-breadcrumbs">
           <span>Mentors</span>
+          {mentor.category && <>
+            <span className="crumb-sep" aria-hidden="true">/</span>
+            <span>{mentor.category}</span>
+          </>}
           <span className="crumb-sep" aria-hidden="true">/</span>
-          <span>{mentor.category}</span>
-          <span className="crumb-sep" aria-hidden="true">/</span>
-          <span className="current-crumb" aria-current="page">{mentor.name}</span>
+          <span className="current-crumb" aria-current="page">{mentor.name || 'Mentor profile'}</span>
         </nav>
 
         {/* Action controls */}
@@ -162,26 +165,26 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
           aria-hidden="true"
           data-domain={mentor.category}
         >
-          {mentor.avatarInitials}
+            {mentor.avatarInitials || mentor.name?.trim()?.charAt(0)?.toUpperCase() || '?'}
         </div>
         <div className="profile-header-info">
           <div className="profile-badges-row">
-            <span className="mentor-category-badge" data-domain={mentor.category}>
+            {mentor.category && <span className="mentor-category-badge" data-domain={mentor.category}>
               {mentor.category}
-            </span>
+            </span>}
             {mentor.experience && (
-              <span className="experience-badge">⏱ {mentor.experience}</span>
+              <span className="experience-badge"><Icon name="clock" /> {mentor.experience}</span>
             )}
-            {mentor.rating && (
-              <span className="profile-rating-badge" aria-label={`Rating: ${mentor.rating} out of 5 stars`}>
-                <Icon name="star" /> {Number(mentor.rating).toFixed(1)} ({mentor.reviewCount || mentor.reviews?.length || 0} reviews)
+            {reviewStats.avg && (
+              <span className="profile-rating-badge" aria-label={`Rating: ${reviewStats.avg} out of 5 stars`}>
+                <Icon name="star" /> {reviewStats.avg} ({reviewStats.count} reviews)
               </span>
             )}
           </div>
           <h1 id="profile-heading" className="profile-name">
-            {mentor.name}
+            {mentor.name || 'Mentor profile'}
           </h1>
-          <p className="profile-role">{mentor.title}</p>
+          {mentor.title && <p className="profile-role">{mentor.title}</p>}
           {mentor.education && (
             <p className="profile-education">
               <Icon className="edu-icon" name="graduation" />
@@ -200,7 +203,9 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
             <h2 id="section-about" className="profile-section-title">
               About the Mentor
             </h2>
-            <p className="profile-bio-text">{mentor.bio}</p>
+            <p className="profile-bio-text">
+              {mentor.bio?.trim() || 'This mentor has not added a biography yet.'}
+            </p>
           </section>
 
           {/* Core Expertise Tags */}
@@ -209,16 +214,19 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
               Technical &amp; Domain Expertise
             </h2>
             <div className="expertise-tags large-tags" aria-label="Skills">
-              {mentor.expertise.map((skill) => (
+              {(Array.isArray(mentor.expertise) ? mentor.expertise : []).filter(Boolean).map((skill) => (
                 <span key={skill} className="expertise-tag">
                   {skill}
                 </span>
               ))}
+              {(!Array.isArray(mentor.expertise) || mentor.expertise.filter(Boolean).length === 0) && (
+                <span className="profile-detail-empty">No skills have been listed yet.</span>
+              )}
             </div>
           </section>
 
           {/* Mentoring Topics */}
-          {mentor.mentoringTopics && mentor.mentoringTopics.length > 0 && (
+          {Array.isArray(mentor.mentoringTopics) && mentor.mentoringTopics.length > 0 && (
             <section className="profile-section" aria-labelledby="section-topics">
               <h2 id="section-topics" className="profile-section-title">
                 Mentorship Focus Areas
@@ -252,30 +260,37 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
                 id="write-review-btn"
                 aria-label={`Write a review for ${mentor.name}`}
               >
-                ⭐ Rate &amp; Write Review
+                <Icon name="star" /> Rate &amp; Write Review
               </button>
             </div>
 
             {/* Scorecard Summary */}
             <div className="reviews-summary-card">
               <div className="rating-overview-score">
-                <span className="big-rating-number">{reviewStats.avg}</span>
-                <div className="star-display" aria-label={`Rating: ${reviewStats.avg} out of 5 stars`}>
-                  ★★★★★
-                </div>
+                <span className="big-rating-number">{reviewStats.avg || '—'}</span>
+                {reviewStats.avg ? (
+                  <div className="star-display" aria-label={`Rating: ${reviewStats.avg} out of 5 stars`}>
+                    {'★'.repeat(Math.round(Number(reviewStats.avg)))}
+                    {'☆'.repeat(5 - Math.round(Number(reviewStats.avg)))}
+                  </div>
+                ) : <span className="rating-not-yet">No rating yet</span>}
                 <span className="reviews-count-caption">
-                  Based on {reviewStats.count} verified student {reviewStats.count === 1 ? 'review' : 'reviews'}
+                  {reviewStats.count > 0
+                    ? `Based on ${reviewStats.count} verified student ${reviewStats.count === 1 ? 'review' : 'reviews'}`
+                    : 'No verified reviews yet'}
                 </span>
-                <span className="recommendation-pill">
-                  👍 {reviewStats.recommendPct}% recommend this mentor
-                </span>
+                {reviewStats.recommendPct !== null && (
+                  <span className="recommendation-pill">
+                    <Icon name="thumbsUp" /> {reviewStats.recommendPct}% recommend this mentor
+                  </span>
+                )}
               </div>
 
               {/* Rating distribution breakdown bars */}
-              <div className="rating-distribution-bars" aria-label="Rating breakdown">
+              {reviewStats.hasBreakdown && <div className="rating-distribution-bars" aria-label="Rating breakdown">
                 {[5, 4, 3, 2, 1].map((stars) => {
                   const starCount = reviewStats.distribution[stars] || 0;
-                  const pct = reviewStats.count > 0 ? Math.round((starCount / reviewStats.count) * 100) : 0;
+                  const pct = reviewStats.ratingCount > 0 ? Math.round((starCount / reviewStats.ratingCount) * 100) : 0;
                   return (
                     <div key={stars} className="distribution-row">
                       <span className="dist-stars-label">{stars} ★</span>
@@ -286,11 +301,11 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
                     </div>
                   );
                 })}
-              </div>
+              </div>}
             </div>
 
             {/* Reviews List */}
-            {mentor.reviews && mentor.reviews.length > 0 ? (
+            {Array.isArray(mentor.reviews) && mentor.reviews.length > 0 ? (
               <div className="reviews-list">
                 {mentor.reviews.map((rev) => {
                   const hasVoted = Boolean(helpfulVotes[rev.id]);
@@ -357,7 +372,7 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
               </div>
             ) : (
               <div className="empty-reviews-card">
-                <span className="empty-review-icon">⭐</span>
+                <span className="empty-review-icon" aria-hidden="true"><Icon name="message" /></span>
                 <p>No student reviews have been posted for {mentor.name} yet.</p>
                 <button
                   type="button"
@@ -385,7 +400,7 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
             </div>
 
             <div className="booking-notice-box" role="note">
-              <span className="notice-icon" aria-hidden="true">◷</span>
+              <span className="notice-icon" aria-hidden="true"><Icon name="clock" /></span>
               <div className="notice-content">
                 <strong>Date-specific time slots</strong>
                 <p>
@@ -410,6 +425,18 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
             >
               View &amp; book available times
             </button>
+
+            {onEnterVR && (
+              <button
+                type="button"
+                className="enter-vr-action-btn"
+                onClick={() => onEnterVR(mentor)}
+                id="enter-vr-room-btn"
+                title="Open 3D Mentorship Room for this mentor"
+              >
+                <span aria-hidden="true">🥽</span> Enter 3D Mentorship Room
+              </button>
+            )}
           </div>
 
           {/* Student Guidance Callout */}
