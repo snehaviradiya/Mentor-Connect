@@ -93,6 +93,16 @@ export default function Navbar({ activeTab, onTabChange }) {
           </button>
           <button
             type="button"
+            className={`nav-link${activeTab === 'vr-room' ? ' active' : ''}`}
+            onClick={() => handleTabChange('vr-room')}
+            aria-current={activeTab === 'vr-room' ? 'page' : undefined}
+            id="nav-vr-room"
+          >
+            3D / VR Room
+            <span className="vr-nav-badge">3D</span>
+          </button>
+          <button
+            type="button"
             className={`nav-link${activeTab === 'about' ? ' active' : ''}`}
             onClick={() => handleTabChange('about')}
             aria-current={activeTab === 'about' ? 'page' : undefined}
