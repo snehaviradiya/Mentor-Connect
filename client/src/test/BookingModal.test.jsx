@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import BookingModal from '../components/BookingModal.jsx';
-import { createBooking, ApiError } from '../services/api.js';
+import { createBooking, fetchMentorAvailability, ApiError } from '../services/api.js';
 
 vi.mock('../services/api.js', () => {
   class MockApiError extends Error {
@@ -16,6 +16,7 @@ vi.mock('../services/api.js', () => {
 
   return {
     createBooking: vi.fn(),
+    fetchMentorAvailability: vi.fn(),
     fetchMentors: vi.fn(),
     ApiError: MockApiError,
   };
@@ -30,23 +31,88 @@ const mockMentor = {
 describe('Booking Modal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    fetchMentorAvailability.mockResolvedValue({
+      status: 'success',
+      data: { slots: [
+        { id: 'slot-1', label: '10:00 AM – 11:00 AM IST', isBookable: true, isBooked: false },
+        { id: 'slot-2', label: '02:00 PM – 03:00 PM IST', isBookable: true, isBooked: false },
+        { id: 'slot-3', label: '04:00 PM – 05:00 PM IST', isBookable: true, isBooked: false },
+        { id: 'slot-4', label: '05:30 PM – 06:30 PM IST', isBookable: true, isBooked: false },
+      ] },
+    });
   });
 
   it('renders modal with mentor details and live API notice', () => {
     render(<BookingModal mentor={mockMentor} onClose={vi.fn()} />);
 
     expect(
-      screen.getByRole('heading', { name: /Request a Demo Session/i, level: 2 })
+      screen.getByRole('heading', { name: /Book a Mentoring Session/i, level: 2 })
     ).toBeInTheDocument();
     expect(screen.getAllByText(/Aarav Sharma/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Live Booking Integration/i)).toBeInTheDocument();
+    expect(screen.getByText(/Live booking/i)).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Submit Booking Request/i })
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Booking completion')).toHaveAttribute('aria-valuenow', '0');
   });
 
-  it('animates booking progress as contact, schedule, and request details are completed', () => {
+  it('shows a loading state while live availability is being fetched', async () => {
+    fetchMentorAvailability.mockReturnValueOnce(new Promise(() => {}));
+    render(<BookingModal mentor={mockMentor} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/Session Date/i), { target: { value: '2026-11-15' } });
+    expect(await screen.findByText(/Loading live availability/i)).toBeInTheDocument();
+  });
+
+  it('shows empty availability and disables booked or unavailable slots', async () => {
+    fetchMentorAvailability.mockResolvedValueOnce({ status: 'success', data: { slots: [] } });
+    render(<BookingModal mentor={mockMentor} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/Session Date/i), { target: { value: '2026-11-15' } });
+    expect(await screen.findByText(/No availability is configured for this date/i)).toBeInTheDocument();
+
+    fetchMentorAvailability.mockResolvedValueOnce({ status: 'success', data: { slots: [
+      { id: 'booked-slot', label: 'Already booked', isBookable: true, isBooked: true },
+      { id: 'closed-slot', label: 'Unavailable', isBookable: false, isBooked: false },
+      { id: 'open-slot', label: 'Bookable', isBookable: true, isBooked: false },
+    ] } });
+    fireEvent.change(screen.getByLabelText(/Session Date/i), { target: { value: '2026-11-16' } });
+    expect(await screen.findByRole('option', { name: /Already booked · Booked/i })).toBeDisabled();
+    expect(screen.getByRole('option', { name: /Unavailable · Unavailable/i })).toBeDisabled();
+    expect(screen.getByRole('option', { name: 'Bookable' })).toBeEnabled();
+  });
+
+  it('allows retry after an availability API error', async () => {
+    fetchMentorAvailability
+      .mockRejectedValueOnce(new ApiError('Availability service unavailable.', 503))
+      .mockResolvedValueOnce({ status: 'success', data: { slots: [
+        { id: 'retry-slot', label: 'Retry succeeded', isBookable: true, isBooked: false },
+      ] } });
+    render(<BookingModal mentor={mockMentor} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/Session Date/i), { target: { value: '2026-11-15' } });
+    expect(await screen.findByText('Availability service unavailable.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByRole('option', { name: 'Retry succeeded' })).toBeInTheDocument();
+  });
+
+  it('ignores a stale availability response after the selected date changes', async () => {
+    const resolveForDate = {};
+    fetchMentorAvailability.mockImplementation((mentorId, date) => new Promise((resolve) => {
+      resolveForDate[date] = resolve;
+    }));
+    render(<BookingModal mentor={mockMentor} onClose={vi.fn()} />);
+    const dateInput = screen.getByLabelText(/Session Date/i);
+    fireEvent.change(dateInput, { target: { value: '2026-11-15' } });
+    fireEvent.change(dateInput, { target: { value: '2026-11-16' } });
+    resolveForDate['2026-11-16']({ status: 'success', data: { slots: [
+      { id: 'new-date-slot', label: 'Latest date', isBookable: true, isBooked: false },
+    ] } });
+    expect(await screen.findByRole('option', { name: 'Latest date' })).toBeInTheDocument();
+    resolveForDate['2026-11-15']({ status: 'success', data: { slots: [
+      { id: 'old-date-slot', label: 'Stale date', isBookable: true, isBooked: false },
+    ] } });
+    expect(screen.queryByRole('option', { name: 'Stale date' })).not.toBeInTheDocument();
+  });
+
+  it('animates booking progress as contact, schedule, and request details are completed', async () => {
     render(<BookingModal mentor={mockMentor} onClose={vi.fn()} />);
     const progress = screen.getByLabelText('Booking completion');
     fireEvent.change(screen.getByLabelText(/Your Full Name/i), {
@@ -60,7 +126,8 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/Session Date/i), {
       target: { value: '2026-11-15' },
     });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
+    await screen.findByRole('option', { name: /10:00 AM/ });
+    fireEvent.change(screen.getByLabelText(/Available Time Slot/i), {
       target: { value: 'slot-1' },
     });
     expect(progress).toHaveAttribute('aria-valuenow', '67');
@@ -80,7 +147,7 @@ describe('Booking Modal', () => {
     expect(screen.getByText(/Full name is required/i)).toBeInTheDocument();
     expect(screen.getByText(/Email address is required/i)).toBeInTheDocument();
     expect(screen.getByText(/Session date is required/i)).toBeInTheDocument();
-    expect(screen.getByText(/Please select a demo time slot/i)).toBeInTheDocument();
+    expect(screen.getByText(/Please select an available time slot/i)).toBeInTheDocument();
     expect(screen.getByText(/Session objective\/topic is required/i)).toBeInTheDocument();
 
     expect(createBooking).not.toHaveBeenCalled();
@@ -161,7 +228,8 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/Session Date/i), {
       target: { value: '2026-11-15' },
     });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
+    await screen.findByRole('option', { name: /10:00 AM/ });
+    fireEvent.change(screen.getByLabelText(/Available Time Slot/i), {
       target: { value: 'slot-1' },
     });
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
@@ -209,7 +277,8 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/Session Date/i), {
       target: { value: '2026-11-01' },
     });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
+    await screen.findByRole('option', { name: /10:00 AM/ });
+    fireEvent.change(screen.getByLabelText(/Available Time Slot/i), {
       target: { value: 'slot-1' },
     });
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
@@ -247,7 +316,7 @@ describe('Booking Modal', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { name: /Session Confirmed & Booked/i, level: 3 })
+        screen.getByRole('heading', { name: /Booking Confirmed/i, level: 3 })
       ).toBeInTheDocument();
     });
   });
@@ -281,7 +350,8 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/Session Date/i), {
       target: { value: '2026-11-01' },
     });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
+    await screen.findByRole('option', { name: /10:00 AM/ });
+    fireEvent.change(screen.getByLabelText(/Available Time Slot/i), {
       target: { value: 'slot-2' },
     });
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
@@ -295,7 +365,7 @@ describe('Booking Modal', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { name: /Session Confirmed & Booked/i, level: 3 })
+        screen.getByRole('heading', { name: /Booking Confirmed/i, level: 3 })
       ).toBeInTheDocument();
       expect(screen.getByText('bk_fedcba98')).toBeInTheDocument();
       expect(screen.getAllByText(/confirmed/i).length).toBeGreaterThanOrEqual(1);
@@ -326,7 +396,8 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/Session Date/i), {
       target: { value: '2026-11-01' },
     });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
+    await screen.findByRole('option', { name: /10:00 AM/ });
+    fireEvent.change(screen.getByLabelText(/Available Time Slot/i), {
       target: { value: 'slot-3' },
     });
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
@@ -346,6 +417,7 @@ describe('Booking Modal', () => {
         screen.getByRole('button', { name: /Choose Another Time Slot/i })
       ).toBeInTheDocument();
     });
+    await waitFor(() => expect(fetchMentorAvailability).toHaveBeenCalledTimes(2));
 
     // Clicking 'Choose Another Time Slot' returns to the form with user inputs preserved
     fireEvent.click(screen.getByRole('button', { name: /Choose Another Time Slot/i }));
@@ -373,7 +445,8 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/Session Date/i), {
       target: { value: '2026-11-01' },
     });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
+    await screen.findByRole('option', { name: /10:00 AM/ });
+    fireEvent.change(screen.getByLabelText(/Available Time Slot/i), {
       target: { value: 'slot-1' },
     });
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
@@ -404,7 +477,8 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/Session Date/i), {
       target: { value: '2026-11-01' },
     });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
+    await screen.findByRole('option', { name: /10:00 AM/ });
+    fireEvent.change(screen.getByLabelText(/Available Time Slot/i), {
       target: { value: 'slot-1' },
     });
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
@@ -435,7 +509,8 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/Session Date/i), {
       target: { value: '2026-11-01' },
     });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
+    await screen.findByRole('option', { name: /10:00 AM/ });
+    fireEvent.change(screen.getByLabelText(/Available Time Slot/i), {
       target: { value: 'slot-1' },
     });
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
@@ -470,7 +545,8 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/Session Date/i), {
       target: { value: '2026-11-01' },
     });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
+    await screen.findByRole('option', { name: /10:00 AM/ });
+    fireEvent.change(screen.getByLabelText(/Available Time Slot/i), {
       target: { value: 'slot-1' },
     });
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {

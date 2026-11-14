@@ -3,6 +3,7 @@ import BookingModal from './BookingModal.jsx';
 import EditProfileModal from './EditProfileModal.jsx';
 import ReviewModal from './ReviewModal.jsx';
 import { useToast } from '../context/ToastContext.jsx';
+import Icon from './Icon.jsx';
 
 export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookingSuccess }) {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -64,7 +65,7 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
         <div className="error-icon" aria-hidden="true">⚠️</div>
         <h2 className="error-title">Mentor Profile Not Found</h2>
         <p className="error-message">
-          The requested mentor could not be located in our demonstration dataset. The profile may have been removed or the link is invalid.
+          The requested mentor could not be found. The profile may have been removed or the link may be invalid.
         </p>
         <button
           type="button"
@@ -131,7 +132,7 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
             onClick={handleShareProfile}
             aria-label="Share mentor profile"
           >
-            <span aria-hidden="true">🔗</span> Share
+            <Icon name="link" /> Share
           </button>
           <button
             type="button"
@@ -140,7 +141,7 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
             aria-label={`Edit profile of ${mentor.name}`}
             id="edit-profile-btn"
           >
-            <span aria-hidden="true">✏️</span> Edit Profile
+            <Icon name="edit" /> Edit Profile
           </button>
         </div>
       </div>
@@ -173,7 +174,7 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
             )}
             {mentor.rating && (
               <span className="profile-rating-badge" aria-label={`Rating: ${mentor.rating} out of 5 stars`}>
-                ⭐ {Number(mentor.rating).toFixed(1)} ({mentor.reviewCount || mentor.reviews?.length || 0} reviews)
+                <Icon name="star" /> {Number(mentor.rating).toFixed(1)} ({mentor.reviewCount || mentor.reviews?.length || 0} reviews)
               </span>
             )}
           </div>
@@ -183,7 +184,7 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
           <p className="profile-role">{mentor.title}</p>
           {mentor.education && (
             <p className="profile-education">
-              <span className="edu-icon" aria-hidden="true">🎓</span>
+              <Icon className="edu-icon" name="graduation" />
               {mentor.education}
             </p>
           )}
@@ -310,7 +311,7 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
                                 </span>
                               )}
                             </div>
-                            <span className="reviewer-sub">🎓 ADYPU Student • {rev.date}</span>
+                            <span className="reviewer-sub"><Icon name="graduation" /> ADYPU Student • {rev.date}</span>
                           </div>
                         </div>
 
@@ -347,7 +348,7 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
                           onClick={() => handleVoteHelpful(rev.id)}
                           aria-label={`Mark review as helpful. Currently ${currentHelpful} votes.`}
                         >
-                          👍 Helpful ({currentHelpful})
+                          <><Icon name="thumbsUp" /> Helpful ({currentHelpful})</>
                         </button>
                       </div>
                     </article>
@@ -380,27 +381,24 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
                   <path d="M8 3v4M16 3v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                 </svg>
               </span>
-              <h2 className="sidebar-card-title">Sample Availability</h2>
+              <h2 className="sidebar-card-title">Live Availability</h2>
             </div>
 
-            {/* Explicit Demo Disclaimer Box */}
             <div className="booking-notice-box" role="note">
-              <span className="notice-icon" aria-hidden="true">ℹ️</span>
+              <span className="notice-icon" aria-hidden="true">◷</span>
               <div className="notice-content">
-                <strong>Demonstration Schedule:</strong>
+                <strong>Date-specific time slots</strong>
                 <p>
-                  Availability slots shown are demonstration fixtures for Milestone 3B &amp; 3C. Live booking workflows and database persistence will be connected in future milestones.
+                  Choose a date to load this mentor&apos;s current bookable slots from the scheduling service.
                 </p>
-                <span className="mock-disclaimer-pill status-pill">Demo Simulation Mode</span>
               </div>
             </div>
 
             <div className="slot-details">
-              <span className="slot-label">Typical Available Hours:</span>
-              <p className="slot-time">{mentor.sampleAvailability}</p>
+              <span className="slot-label">Availability status</span>
+              <p className="slot-time">Updated when you choose a session date.</p>
             </div>
 
-            {/* Enabled Demo Booking Action Button */}
             <button
               ref={bookingButtonRef}
               type="button"
@@ -410,13 +408,13 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
               aria-expanded={isBookingModalOpen}
               id="book-session-btn"
             >
-              Request a Demo Session
+              View &amp; book available times
             </button>
           </div>
 
           {/* Student Guidance Callout */}
           <div className="student-tips-card">
-            <h3 className="tips-title">💡 Mentorship Tip for ADYPU Students</h3>
+            <h3 className="tips-title"><Icon name="lightbulb" /> Mentorship Tip for ADYPU Students</h3>
             <p className="tips-text">
               Prepare 2–3 specific questions or project milestones before reaching out. Defining your technical challenges in advance ensures productive sessions.
             </p>

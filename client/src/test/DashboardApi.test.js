@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cancelBooking, createBooking, fetchStudentDashboard, ApiError } from '../services/api.js';
+import { cancelBooking, createBooking, fetchMentorAvailability, fetchStudentDashboard, ApiError } from '../services/api.js';
 
 function jsonResponse(body, ok = true, status = 200) {
   return {
@@ -33,6 +33,14 @@ describe('authenticated dashboard API service', () => {
       headers: { Authorization: 'Bearer student-token' },
     });
     expect(response.data.status).toBe('cancelled');
+  });
+
+  it('preserves a year-boundary calendar date and the live slot response contract', async () => {
+    const slots = [{ id: 'slot-a', label: '10:00 AM IST', isBookable: true, isBooked: false }];
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ status: 'success', data: { mentorId: 'mentor-1', date: '2026-12-31', slots } })));
+    const response = await fetchMentorAvailability('mentor-1', '2026-12-31');
+    expect(fetch).toHaveBeenCalledWith('/api/mentors/mentor-1/availability?date=2026-12-31', { signal: undefined });
+    expect(response.data.slots).toEqual(slots);
   });
 
   it('validates a saved token before submitting an authenticated booking', async () => {

@@ -1,48 +1,11 @@
-const DAYS = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-];
+import { useEffect, useState } from 'react';
+import { fetchMentorAvailability } from '../services/api.js';
 
-const HOURS = Array.from({ length: 11 }, (_, index) => index + 9);
-
-function toMinutes(hour, minute, meridiem) {
-  const normalizedHour = hour % 12 + (meridiem === 'PM' ? 12 : 0);
-  return normalizedHour * 60 + minute;
-}
-
-function getAvailability(mentor) {
-  const schedule = mentor.sampleAvailability || '';
-  const daysText = schedule.split(',')[0] || '';
-  const days = new Set(
-    daysText
-      .split(/\s*(?:&|and)\s*/i)
-      .map((day) => day.trim().replace(/s$/i, '').toLowerCase())
-  );
-  const times = [...schedule.matchAll(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/gi)];
-  if (times.length < 2) return null;
-
-  const start = toMinutes(Number(times[0][1]), Number(times[0][2] || 0), times[0][3].toUpperCase());
-  const end = toMinutes(Number(times[1][1]), Number(times[1][2] || 0), times[1][3].toUpperCase());
-  if (end <= start) return null;
-
-  return { days, start, end };
-}
-
-function formatHour(hour) {
-  const displayHour = hour % 12 || 12;
-  return `${displayHour} ${hour < 12 ? 'AM' : 'PM'}`;
-}
-
-function isAvailable(mentor, day, hour) {
-  const availability = getAvailability(mentor);
-  if (!availability || !availability.days.has(day.toLowerCase())) return false;
-  const slotStart = hour * 60;
-  return slotStart < availability.end && slotStart + 60 > availability.start;
+function localDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export default function AvailabilityExplorer({
@@ -52,91 +15,125 @@ export default function AvailabilityExplorer({
   onClearSlot,
   onShowMentors,
 }) {
+  const [date, setDate] = useState(localDateString);
+  const [availabilityState, setAvailabilityState] = useState({ key: null, status: 'idle', data: [] });
+  const [retry, setRetry] = useState(0);
+  const requestKey = date && mentors.length
+    ? `${date}|${mentors.map((mentor) => mentor.id).join(',')}|${retry}`
+    : null;
+
+  useEffect(() => {
+    if (!requestKey) return undefined;
+    const controller = new AbortController();
+    let current = true;
+    Promise.all(mentors.map(async (mentor) => {
+      const response = await fetchMentorAvailability(mentor.id, date, { signal: controller.signal });
+      const slots = response?.data?.slots;
+      if (!Array.isArray(slots)) throw new Error('Unexpected availability response format.');
+      return { mentor, slots };
+    }))
+      .then((results) => {
+        if (current) setAvailabilityState({ key: requestKey, status: 'success', data: results });
+      })
+      .catch((fetchError) => {
+        if (!current || fetchError.name === 'AbortError') return;
+        setAvailabilityState({
+          key: requestKey,
+          status: 'error',
+          error: fetchError.message || 'Unable to load live availability. Please retry.',
+          data: [],
+        });
+      });
+    return () => {
+      current = false;
+      controller.abort();
+    };
+  }, [mentors, date, retry, requestKey]);
+
+  const isLoading = Boolean(requestKey && availabilityState.key !== requestKey);
+  const error = availabilityState.key === requestKey && availabilityState.status === 'error'
+    ? availabilityState.error
+    : null;
+  const availability = availabilityState.key === requestKey && availabilityState.status === 'success'
+    ? availabilityState.data
+    : [];
+
+  const slotGroups = new Map();
+  availability.forEach(({ mentor, slots }) => {
+    slots.filter((slot) => slot.isBookable).forEach((slot) => {
+      const group = slotGroups.get(slot.label) || [];
+      group.push(mentor);
+      slotGroups.set(slot.label, group);
+    });
+  });
+
   return (
     <section className="availability-explorer" aria-labelledby="availability-heading">
       <div className="availability-explorer-header">
         <div>
           <span className="availability-explorer-eyebrow">PLAN YOUR NEXT SESSION</span>
           <h2 id="availability-heading">Explore mentor availability</h2>
-          <p>Pick a time to see mentors available that day, before opening their profiles.</p>
+          <p>Choose a date to see bookable time slots returned by the scheduling service.</p>
         </div>
-        <span className="availability-demo-label">Illustrative schedule · IST</span>
+        <label className="availability-date-control" htmlFor="availability-date">
+          <span>Date · IST slots</span>
+          <input
+            id="availability-date"
+            type="date"
+            min={localDateString()}
+            value={date}
+            onChange={(event) => {
+              setDate(event.target.value);
+              onClearSlot();
+            }}
+          />
+        </label>
       </div>
 
-      <div className="availability-grid-scroll">
-        <div className="availability-grid" role="grid" aria-label="Weekly mentor availability in IST">
-          <div className="availability-grid-corner" role="columnheader">IST</div>
-          {DAYS.map((day) => (
-            <div className="availability-day-heading" role="columnheader" key={day}>
-              {day.slice(0, 3)}
-            </div>
-          ))}
-          {HOURS.map((hour) => (
-            <div className="availability-grid-row" role="row" key={hour}>
-              <div className="availability-time-heading" role="rowheader">
-                {formatHour(hour)}
-              </div>
-              {DAYS.map((day) => {
-                const availableMentors = mentors.filter((mentor) =>
-                  isAvailable(mentor, day, hour)
-                );
-                const count = availableMentors.length;
-                const isSelected = selectedSlot?.day === day && selectedSlot?.hour === hour;
-                const label = `${day}, ${formatHour(hour)} — ${count} ${
-                  count === 1 ? 'mentor' : 'mentors'
-                } available`;
-
-                return (
-                  <div className="availability-grid-cell" role="gridcell" key={day}>
-                    <button
-                      type="button"
-                      className={`availability-cell${count ? ` availability-cell-level-${Math.min(count, 3)}` : ''}${isSelected ? ' is-selected' : ''}`}
-                      onClick={() =>
-                        isSelected
-                          ? onClearSlot()
-                          : onSelectSlot({ day, hour, mentors: availableMentors })
-                      }
-                      disabled={count === 0}
-                      aria-label={label}
-                      aria-pressed={isSelected}
-                      title={label}
-                    >
-                      {count || ''}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+      {isLoading ? (
+        <p className="availability-feedback" role="status" aria-busy="true">Loading live availability…</p>
+      ) : error ? (
+        <div className="availability-feedback availability-feedback-error" role="alert">
+          <span>{error}</span>{' '}
+          <button type="button" onClick={() => setRetry((attempt) => attempt + 1)}>Retry</button>
         </div>
-      </div>
-
-      <div className="availability-explorer-footer">
-        <div className="availability-legend" aria-label="Availability legend">
-          <span>Fewer mentors</span>
-          <span className="availability-legend-swatch availability-cell-level-1" aria-hidden="true" />
-          <span className="availability-legend-swatch availability-cell-level-2" aria-hidden="true" />
-          <span className="availability-legend-swatch availability-cell-level-3" aria-hidden="true" />
-          <span>More mentors</span>
+      ) : slotGroups.size === 0 ? (
+        <p className="availability-feedback" role="status">
+          {mentors.length === 0 ? 'No mentors match the current filters.' : 'No bookable slots are available for this date.'}
+        </p>
+      ) : (
+        <div className="availability-live-list" aria-label={`Available mentor slots for ${date}`}>
+          {[...slotGroups.entries()].map(([label, availableMentors]) => {
+            const isSelected = selectedSlot?.date === date && selectedSlot?.label === label;
+            const buttonLabel = `${label} · ${availableMentors.length} ${availableMentors.length === 1 ? 'mentor' : 'mentors'} available`;
+            return (
+              <button
+                type="button"
+                key={label}
+                className={`availability-live-slot${isSelected ? ' is-selected' : ''}`}
+                aria-label={buttonLabel}
+                aria-pressed={isSelected}
+                onClick={() => isSelected
+                  ? onClearSlot()
+                  : onSelectSlot({ date, label, mentors: availableMentors })}
+              >
+                <span>{label}</span>
+                <span>{buttonLabel.split('· ')[1]}</span>
+              </button>
+            );
+          })}
         </div>
-        <p>Counts show mentors with an illustrative demo slot during that hour.</p>
-      </div>
+      )}
 
       {selectedSlot && (
         <div className="availability-selection" role="status">
           <span>
-            <strong>{selectedSlot.day} at {formatHour(selectedSlot.hour)}</strong>
+            <strong>{selectedSlot.date} · {selectedSlot.label}</strong>
             {' · '}{selectedSlot.mentors.length}{' '}
             {selectedSlot.mentors.length === 1 ? 'mentor' : 'mentors'} available
           </span>
           <button type="button" onClick={onShowMentors}>Show mentors ↓</button>
-          <button
-            type="button"
-            className="availability-clear-button"
-            onClick={onClearSlot}
-          >
-            Clear time
-          </button>
+          <button type="button" className="availability-clear-button" onClick={onClearSlot}>Clear time</button>
         </div>
       )}
     </section>

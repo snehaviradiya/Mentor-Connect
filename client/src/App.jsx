@@ -19,7 +19,7 @@ import BookingModal from './components/BookingModal.jsx';
 import { ToastProvider, useToast } from './context/ToastContext.jsx';
 import { fetchMentors } from './services/api.js';
 
-export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTORS }) {
+export function AppContent({ initialLoading = null, initialMentors = import.meta.env.MODE === 'test' ? MOCK_MENTORS : [] }) {
   const [activeTab, setActiveTab] = useState('discover');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -30,6 +30,7 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
   const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
   const [mentors, setMentors] = useState(initialMentors);
+  const [mentorsError, setMentorsError] = useState(null);
   const listingsRef = useRef(null);
   const toast = useToast();
 
@@ -55,13 +56,12 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
       fetchMentors()
         .then((res) => {
           if (!isMounted) return;
-          if (res?.data?.mentors && Array.isArray(res.data.mentors) && res.data.mentors.length > 0) {
-            setMentors(res.data.mentors);
-          }
+          if (!Array.isArray(res?.data?.mentors)) throw new Error('Unexpected mentor directory response.');
+          setMentors(res.data.mentors);
+          setMentorsError(null);
         })
         .catch((err) => {
-          // Gracefully fallback to mockMentors on network error/offline
-          console.info('Using local mentor fixtures (offline/demo mode):', err.message);
+          if (isMounted) setMentorsError(err.message || 'Unable to load mentors. Please retry.');
         })
         .finally(() => {
           if (isMounted) {
@@ -152,12 +152,13 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
     setIsLoading(true);
     try {
       const res = await fetchMentors();
-      if (res?.data?.mentors && Array.isArray(res.data.mentors) && res.data.mentors.length > 0) {
-        setMentors(res.data.mentors);
-      }
+      if (!Array.isArray(res?.data?.mentors)) throw new Error('Unexpected mentor directory response.');
+      setMentors(res.data.mentors);
+      setMentorsError(null);
       toast.info('Mentor directory refreshed with the latest data.', 'Refreshed');
-    } catch {
-      toast.info('Mentors loaded from demonstration fixtures.', 'Directory Refreshed');
+    } catch (error) {
+      setMentorsError(error.message || 'Unable to refresh mentors. Please retry.');
+      toast.error('The mentor directory could not be refreshed.', 'Refresh Failed');
     } finally {
       setTimeout(() => {
         setIsLoading(false);
@@ -281,7 +282,7 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
               </div>
 
               <AvailabilityExplorer
-                mentors={availabilityMentors}
+                mentors={mentors}
                 selectedSlot={selectedAvailability}
                 onSelectSlot={setSelectedAvailability}
                 onClearSlot={() => setSelectedAvailability(null)}
@@ -290,6 +291,13 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
                   block: 'start',
                 })}
               />
+
+              {mentorsError && !isLoading && (
+                <div className="directory-error" role="alert">
+                  <span>{mentorsError}</span>
+                  <button type="button" onClick={handleRefreshMentors}>Retry</button>
+                </div>
+              )}
 
               {/* Mentor Cards Grid, Skeleton Cards while loading, or Empty State */}
               {isLoading ? (
@@ -327,15 +335,6 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
                 />
               )}
 
-              {/* Demonstration Notice */}
-              <aside className="demo-disclaimer" aria-label="Demo Disclaimer">
-                <span className="disclaimer-icon" aria-hidden="true">i</span>
-                <p>
-                  <strong>Demonstration Fixtures:</strong> Mentors and availability displayed
-                  above are sample records for Milestone 3A &amp; 3B frontend testing. Live mentor
-                  onboarding and database-backed scheduling will be connected in future milestones.
-                </p>
-              </aside>
             </section>
           )
         ) : activeTab === 'dashboard' ? (

@@ -162,6 +162,20 @@ export async function fetchMentors() {
   }
 }
 
+/** Fetches real availability for one mentor on a calendar date (YYYY-MM-DD). */
+export async function fetchMentorAvailability(mentorId, date, { signal } = {}) {
+  try {
+    const response = await fetch(
+      `/api/mentors/${encodeURIComponent(mentorId)}/availability?date=${encodeURIComponent(date)}`,
+      { signal }
+    );
+    return await handleResponse(response);
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(error.message || 'Unable to load mentor availability.', 0, 'NETWORK_ERROR');
+  }
+}
+
 /**
  * Updates an existing mentor profile.
  *

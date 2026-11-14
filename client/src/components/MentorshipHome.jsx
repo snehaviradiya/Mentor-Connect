@@ -111,7 +111,6 @@ export default function MentorshipHome({
         </div>
       )}
 
-      <p className="journey-demo-note">Illustrative design concept · Sample data</p>
     </section>
   );
 }

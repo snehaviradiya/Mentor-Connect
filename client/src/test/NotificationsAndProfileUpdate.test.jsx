@@ -4,7 +4,7 @@ import BookingModal from '../components/BookingModal.jsx';
 import MentorProfile from '../components/MentorProfile.jsx';
 import EditProfileModal from '../components/EditProfileModal.jsx';
 import { ToastProvider } from '../context/ToastContext.jsx';
-import { createBooking, updateMentorProfile, ApiError } from '../services/api.js';
+import { createBooking, updateMentorProfile, fetchMentorAvailability, ApiError } from '../services/api.js';
 
 vi.mock('../services/api.js', () => {
   class MockApiError extends Error {
@@ -19,6 +19,7 @@ vi.mock('../services/api.js', () => {
 
   return {
     createBooking: vi.fn(),
+    fetchMentorAvailability: vi.fn(),
     updateMentorProfile: vi.fn(),
     fetchMentors: vi.fn(),
     ApiError: MockApiError,
@@ -42,6 +43,15 @@ const sampleMentor = {
 describe('Notifications & Feedback Messages (Booking & Profile Update)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    fetchMentorAvailability.mockResolvedValue({
+      status: 'success',
+      data: { slots: [
+        { id: 'slot-1', label: '10:00 AM – 11:00 AM IST', isBookable: true, isBooked: false },
+        { id: 'slot-2', label: '02:00 PM – 03:00 PM IST', isBookable: true, isBooked: false },
+        { id: 'slot-3', label: '04:00 PM – 05:00 PM IST', isBookable: true, isBooked: false },
+        { id: 'slot-4', label: '05:30 PM – 06:30 PM IST', isBookable: true, isBooked: false },
+      ] },
+    });
   });
 
   it('shows success message and toast notification when booking succeeds', async () => {
@@ -74,7 +84,8 @@ describe('Notifications & Feedback Messages (Booking & Profile Update)', () => {
     fireEvent.change(screen.getByLabelText(/Session Date/i), {
       target: { value: '2026-11-05' },
     });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
+    await screen.findByRole('option', { name: /10:00 AM/ });
+    fireEvent.change(screen.getByLabelText(/Available Time Slot/i), {
       target: { value: 'slot-1' },
     });
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
@@ -85,10 +96,10 @@ describe('Notifications & Feedback Messages (Booking & Profile Update)', () => {
 
     await waitFor(() => {
       // In-modal receipt confirmation
-      expect(screen.getByRole('heading', { name: /Session Confirmed & Booked/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /Booking Confirmed/i })).toBeInTheDocument();
       // Toast notification
       expect(screen.getByTestId('toast-success')).toBeInTheDocument();
-      expect(screen.getAllByText(/Session Confirmed/i).length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByText(/Session Confirmed/i)).toBeInTheDocument();
     });
   });
 
@@ -112,7 +123,8 @@ describe('Notifications & Feedback Messages (Booking & Profile Update)', () => {
     fireEvent.change(screen.getByLabelText(/Session Date/i), {
       target: { value: '2026-11-05' },
     });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
+    await screen.findByRole('option', { name: /10:00 AM/ });
+    fireEvent.change(screen.getByLabelText(/Available Time Slot/i), {
       target: { value: 'slot-4' },
     });
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {

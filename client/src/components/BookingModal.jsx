@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { DEMO_TIME_SLOTS } from '../data/mockMentors.js';
-import { createBooking } from '../services/api.js';
+import { createPortal } from 'react-dom';
+import { createBooking, fetchMentorAvailability } from '../services/api.js';
 import { useToast } from '../context/ToastContext.jsx';
 import ProgressSteps from './ProgressSteps.jsx';
+import Icon from './Icon.jsx';
 
 // Deterministic helper to get today's date formatted as YYYY-MM-DD
 function getTodayDateString() {
@@ -23,6 +24,7 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
   const [studentEmail, setStudentEmail] = useState('');
   const [sessionDate, setSessionDate] = useState('');
   const [selectedSlotId, setSelectedSlotId] = useState('');
+  const [selectedSlotContext, setSelectedSlotContext] = useState('');
   const [sessionTopic, setSessionTopic] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -33,9 +35,24 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
   const [submittedData, setSubmittedData] = useState(null);
   const [serverError, setServerError] = useState(null);
   const [conflictMessage, setConflictMessage] = useState(null);
+  const [availabilityState, setAvailabilityState] = useState({ key: null, status: 'idle', slots: [] });
+  const [availabilityRetry, setAvailabilityRetry] = useState(0);
+  const availabilityKey = mentor?.id && sessionDate
+    ? `${mentor.id}|${sessionDate}|${availabilityRetry}`
+    : null;
+  const isLoadingSlots = Boolean(availabilityKey && availabilityState.key !== availabilityKey);
+  const availabilityError = availabilityState.key === availabilityKey && availabilityState.status === 'error'
+    ? availabilityState.error
+    : null;
+  const availableSlots = availabilityState.key === availabilityKey && availabilityState.status === 'success'
+    ? availabilityState.slots
+    : [];
+  const selectedSlot = selectedSlotContext === `${mentor?.id}|${sessionDate}`
+    ? availableSlots.find((slot) => slot.id === selectedSlotId && slot.isBookable && !slot.isBooked)
+    : null;
   const isContactComplete =
     studentName.trim().length >= 2 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(studentEmail.trim());
-  const isScheduleComplete = Boolean(sessionDate && selectedSlotId);
+  const isScheduleComplete = Boolean(sessionDate && selectedSlot);
   const isRequestComplete = Boolean(sessionTopic.trim());
   const completedBookingSteps =
     Number(isContactComplete) + Number(isContactComplete && isScheduleComplete);
@@ -47,6 +64,36 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
   const currentBookingStep = submissionResult === 'success'
     ? 2
     : completedBookingSteps;
+
+  useEffect(() => {
+    if (!availabilityKey) return undefined;
+    const controller = new AbortController();
+    let current = true;
+    fetchMentorAvailability(mentor.id, sessionDate, { signal: controller.signal })
+      .then((response) => {
+        if (!current) return;
+        const slots = response?.data?.slots;
+        if (!Array.isArray(slots)) throw new Error('Unexpected availability response format.');
+        setAvailabilityState({ key: availabilityKey, status: 'success', slots });
+      })
+      .catch((error) => {
+        if (!current || error.name === 'AbortError') return;
+        setAvailabilityState({
+          key: availabilityKey,
+          status: 'error',
+          error: error.status === 404
+            ? 'This mentor is no longer available.'
+            : error.status === 401
+              ? 'Your sign-in session has expired. Sign in again to continue.'
+              : error.message || 'Unable to load available times. Please retry.',
+          slots: [],
+        });
+      });
+    return () => {
+      current = false;
+      controller.abort();
+    };
+  }, [mentor?.id, sessionDate, availabilityRetry, availabilityKey]);
 
   // Focus trap and Escape key listener
   useEffect(() => {
@@ -122,8 +169,8 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
       newErrors.sessionDate = 'Session date cannot be in the past.';
     }
 
-    if (!selectedSlotId) {
-      newErrors.selectedSlotId = 'Please select a demo time slot.';
+    if (!selectedSlot) {
+      newErrors.selectedSlotId = 'Please select an available time slot for this date.';
     }
 
     const trimmedTopic = sessionTopic.trim();
@@ -153,8 +200,7 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
     setIsSubmitting(true);
     setServerError(null);
 
-    const chosenSlot = DEMO_TIME_SLOTS.find((s) => s.id === selectedSlotId);
-    const timeSlotLabel = chosenSlot ? chosenSlot.label : selectedSlotId;
+    const timeSlotLabel = selectedSlot.label;
 
     const payload = {
       mentorId: mentor.id,
@@ -179,7 +225,7 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
         setSubmissionResult('success');
         onBookingSuccess?.();
         toast.bookingApproved(
-          `Demo session booked with ${mentor.name} for ${sessionDate} at ${timeSlotLabel}!`,
+          `Session booked with ${mentor.name} for ${sessionDate} at ${timeSlotLabel}!`,
           'Session Confirmed'
         );
       } else {
@@ -196,6 +242,9 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
           mentorName: mentor.name,
         });
         setSubmissionResult('conflict');
+        setSelectedSlotId('');
+        setSelectedSlotContext('');
+        setAvailabilityRetry((retry) => retry + 1);
         toast.error(conflictMsg, 'Time Slot Unavailable');
       } else if (err.status === 400) {
         const detailsMsg =
@@ -235,7 +284,7 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
     }
   };
 
-  return (
+  return createPortal((
     <div
       className="modal-backdrop"
       onClick={handleBackdropClick}
@@ -252,7 +301,7 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
         <div className="modal-header">
           <div>
             <h2 id="booking-modal-title" className="modal-title">
-              Request a Demo Session
+              Book a Mentoring Session
             </h2>
             <p className="modal-subtitle">
               With <strong>{mentor.name}</strong> • {mentor.category}
@@ -271,10 +320,10 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
 
         {/* API Integration Notice */}
         <div className="demo-modal-alert" role="note">
-          <span className="demo-alert-icon" aria-hidden="true">ℹ️</span>
+          <Icon className="demo-alert-icon" name="info" />
           <p>
-            <strong>Live Booking Integration:</strong> Session requests are validated and recorded by
-            the Mentor Connect API. Bookings are stored in memory during Milestone 3.
+            <strong>Live booking:</strong> Available times are checked with the scheduling service,
+            and booking requests are saved by Mentor Connect.
           </p>
         </div>
 
@@ -290,7 +339,7 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
           /* Success Receipt View */
           <div className="outcome-view success-view" role="status" aria-live="polite">
             <div className="outcome-icon-wrapper success-icon">✓</div>
-            <h3 className="outcome-title">Session Confirmed &amp; Booked</h3>
+            <h3 className="outcome-title">Booking Confirmed</h3>
             <p className="outcome-tagline">
               Your appointment request has been confirmed by the API server.
             </p>
@@ -405,7 +454,7 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
                 style={{ backgroundColor: '#fef2f2', borderColor: '#fca5a5' }}
                 role="alert"
               >
-                <span className="demo-alert-icon" aria-hidden="true">⚠️</span>
+                <Icon className="demo-alert-icon" name="alert" />
                 <p style={{ color: '#991b1b', fontWeight: 500 }}>
                   <strong>Booking Error:</strong> {serverError}
                 </p>
@@ -469,7 +518,7 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
               )}
             </div>
 
-            {/* Session Date & Demo Slot Selection (Row) */}
+            {/* Session Date & live slot selection */}
             <div className="form-row">
               <div className="form-group flex-1">
                 <label htmlFor="session-date" className="form-label">
@@ -483,6 +532,8 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
                   value={sessionDate}
                   onChange={(e) => {
                     setSessionDate(e.target.value);
+                    setSelectedSlotId('');
+                    setSelectedSlotContext('');
                     if (errors.sessionDate) setErrors({ ...errors, sessionDate: null });
                     if (serverError) setServerError(null);
                   }}
@@ -500,7 +551,7 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
 
               <div className="form-group flex-1">
                 <label htmlFor="demo-time-slot" className="form-label">
-                  Demo Time Slot <span className="required-star">*</span>
+                  Available Time Slot (IST) <span className="required-star">*</span>
                 </label>
                 <select
                   id="demo-time-slot"
@@ -508,28 +559,39 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
                   value={selectedSlotId}
                   onChange={(e) => {
                     setSelectedSlotId(e.target.value);
+                    setSelectedSlotContext(`${mentor.id}|${sessionDate}`);
                     if (errors.selectedSlotId) setErrors({ ...errors, selectedSlotId: null });
                     if (serverError) setServerError(null);
                   }}
                   aria-invalid={!!errors.selectedSlotId}
                   aria-describedby={errors.selectedSlotId ? 'demo-time-slot-error' : 'slot-hint'}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !sessionDate || isLoadingSlots || Boolean(availabilityError)}
                   required
                 >
-                  <option value="">-- Select an illustrative slot --</option>
-                  {DEMO_TIME_SLOTS.map((slot) => (
-                    <option key={slot.id} value={slot.id}>
-                      {slot.label}
+                  <option value="">{!sessionDate ? 'Select a date first' : isLoadingSlots ? 'Loading availability…' : '-- Select an available slot --'}</option>
+                  {availableSlots.map((slot) => (
+                    <option key={slot.id} value={slot.id} disabled={!slot.isBookable || slot.isBooked}>
+                      {slot.label}{slot.isBooked ? ' · Booked' : !slot.isBookable ? ' · Unavailable' : ''}
                     </option>
                   ))}
                 </select>
+                {isLoadingSlots && <p className="field-hint" role="status">Loading live availability…</p>}
+                {!isLoadingSlots && !availabilityError && sessionDate && availableSlots.length === 0 && (
+                  <p className="field-hint" role="status">No availability is configured for this date.</p>
+                )}
+                {availabilityError && (
+                  <div className="field-error" role="alert">
+                    <span>{availabilityError}</span>{' '}
+                    <button type="button" className="text-button" onClick={() => setAvailabilityRetry((retry) => retry + 1)}>Retry</button>
+                  </div>
+                )}
                 {errors.selectedSlotId ? (
                   <p id="demo-time-slot-error" className="field-error" role="alert">
                     {errors.selectedSlotId}
                   </p>
                 ) : (
                   <p id="slot-hint" className="field-hint">
-                    Select a consultation time window with {mentor.name}.
+                    Select one of {mentor.name}&apos;s live backend slots.
                   </p>
                 )}
               </div>
@@ -631,5 +693,5 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
         )}
       </div>
     </div>
-  );
+  ), document.body);
 }

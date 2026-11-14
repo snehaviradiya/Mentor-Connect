@@ -1,3 +1,5 @@
+import Icon from './Icon.jsx';
+
 export default function MentorCard({ mentor, onSelectMentor }) {
   return (
     <article className="mentor-card" aria-labelledby={`mentor-name-${mentor.id}`}>
@@ -25,7 +27,7 @@ export default function MentorCard({ mentor, onSelectMentor }) {
             )}
             {mentor.rating && (
               <span className="mentor-rating-chip" aria-label={`Rating: ${mentor.rating} stars`}>
-                ⭐ {Number(mentor.rating).toFixed(1)} ({mentor.reviewCount || mentor.reviews?.length || 0})
+                <><Icon name="star" /> {Number(mentor.rating).toFixed(1)} ({mentor.reviewCount || mentor.reviews?.length || 0})</>
               </span>
             )}
           </div>
@@ -53,10 +55,9 @@ export default function MentorCard({ mentor, onSelectMentor }) {
               <path d="M8 3v4M16 3v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
           </span>
-          <span className="availability-title">Sample Availability</span>
-          <span className="mock-disclaimer-pill">Demo</span>
+          <span className="availability-title">Booking availability</span>
         </div>
-        <p className="availability-text">{mentor.sampleAvailability}</p>
+        <p className="availability-text">Choose a date in the live availability explorer to see bookable slots.</p>
       </div>
 
       <div className="card-action-footer">

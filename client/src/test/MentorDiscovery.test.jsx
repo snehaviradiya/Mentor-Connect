@@ -1,9 +1,25 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import App from '../App.jsx';
 import { MOCK_MENTORS } from '../data/mockMentors.js';
+import { fetchMentorAvailability } from '../services/api.js';
+
+vi.mock('../services/api.js', () => ({
+  fetchMentors: vi.fn(),
+  fetchMentorAvailability: vi.fn(async (mentorId) => ({
+    status: 'success',
+    data: { slots: mentorId === 'mentor-1'
+      ? [{ id: 'availability-1', label: '04:00 PM – 05:00 PM IST', isBookable: true, isBooked: false }]
+      : [] },
+  })),
+}));
 
 describe('Mentor Discovery', () => {
+  beforeEach(() => {
+    fetchMentorAvailability.mockClear();
+    fetchMentorAvailability.mockImplementation(() => new Promise(() => {}));
+  });
+
   it('shows the mentorship journey home with live mentor search and recommendations', () => {
     render(<App />);
 
@@ -91,7 +107,13 @@ describe('Mentor Discovery', () => {
     expect(container.querySelector('.results-count')).toHaveTextContent('Showing 8 of 8 mentors');
   });
 
-  it('explores weekly availability and filters mentor results by a selected time', () => {
+  it('loads date-specific backend availability and filters mentors by a selected live slot', async () => {
+    fetchMentorAvailability.mockImplementation(async (mentorId) => ({
+      status: 'success',
+      data: { slots: mentorId === 'mentor-1'
+        ? [{ id: 'availability-1', label: '04:00 PM – 05:00 PM IST', isBookable: true, isBooked: false }]
+        : [] },
+    }));
     const { container } = render(<App />);
 
     expect(
@@ -99,15 +121,16 @@ describe('Mentor Discovery', () => {
     ).toBeInTheDocument();
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Thursday, 4 PM — 1 mentor available' })
+      await screen.findByRole('button', { name: /04:00 PM – 05:00 PM IST · 1 mentor available/i })
     );
+    expect(fetchMentorAvailability).toHaveBeenCalledWith('mentor-1', expect.any(String), expect.any(Object));
 
     expect(container.querySelector('.results-count')).toHaveTextContent('Showing 1 of 8 mentors');
     expect(screen.getByRole('heading', { name: 'Aarav Sharma', level: 3 })).toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Dr. Priya Kulkarni', level: 3 })
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('Thursday at 4 PM · 1 mentor available');
+    expect(screen.getByRole('status')).toHaveTextContent(/\d{4}-\d{2}-\d{2} · 04:00 PM – 05:00 PM IST · 1 mentor available/);
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear time' }));
     expect(container.querySelector('.results-count')).toHaveTextContent('Showing 8 of 8 mentors');
