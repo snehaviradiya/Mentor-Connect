@@ -6,6 +6,8 @@
 **Upstream Team Repository:** [https://github.com/Abhay750/Mentor-Connect](https://github.com/Abhay750/Mentor-Connect)  
 **Sprint:** Sprint 1 — Backend Engineering & Persistence Foundation  
 
+> **Historical snapshot:** This document records the repository before the initial backend implementation. It is not a description of current functionality; consult [`API.md`](./API.md), [`DATABASE.md`](./DATABASE.md), and the code for the current system.
+
 ---
 
 ## 1. Executive Summary
@@ -69,14 +71,12 @@ server/
 
 ### 4.2 Local Environment Constraints & Evaluation
 - Investigation of the local development environment revealed:
-  - Node.js `v25.3.0` and npm `11.7.0`.
-  - An existing system-level PostgreSQL instance was listening on port 5432 with administrative password authentication enabled, but no local project credentials configured.
-  - Docker daemon was not running.
+  - A portable local database was required so contributors could run the application without provisioning external services.
 - **Decision & Strategy**:
   - Adopt **Prisma ORM** as the unified data access layer.
   - For local development and test automation, configure Prisma with SQLite (`file:./dev.db`) to provide guaranteed zero-dependency portability across student laptops and CI pipelines without port conflicts or credential friction.
-  - Design the Prisma schema with clean standard relational SQL types, foreign keys, cascade rules, and compound unique constraints that are 100% portable to PostgreSQL for staging and production.
-  - Fully document the PostgreSQL configuration and migration pathway in `docs/DATABASE.md`.
+  - Use relational models and constraints with SQLite for local development and automated tests.
+  - Document that a production database provider and migration are not configured in this repository.
 
 ---
 

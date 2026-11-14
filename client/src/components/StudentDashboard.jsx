@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import ReviewModal from './ReviewModal.jsx';
 import { useToast } from '../context/ToastContext.jsx';
-import UpcomingEvents from './UpcomingEvents.jsx';
 import { cancelBooking, fetchStudentDashboard, fetchSessions } from '../services/api.js';
 
 const DEFAULT_LEARNING_GOALS = [
@@ -216,6 +215,7 @@ export default function StudentDashboard({
   onOpenWorkspace,
   refreshKey = 0,
   onOpenSignup,
+  onOpenLogin,
 }) {
   const toast = useToast();
   const [goals, setGoals] = useState(DEFAULT_LEARNING_GOALS);
@@ -588,7 +588,12 @@ export default function StudentDashboard({
               <div role="alert" className="session-board-empty dashboard-load-error">
                 <p>{dashboardError}</p>
                 {!authRequired && <button type="button" className="btn-link-action" onClick={() => loadDashboard(true)}>Try again</button>}
-                {authRequired && onOpenSignup && <button type="button" className="btn-link-action" onClick={onOpenSignup}>Create student account</button>}
+                {authRequired && (
+                  <div className="dashboard-auth-actions">
+                    {onOpenLogin && <button type="button" className="btn-link-action" onClick={onOpenLogin}>Sign in</button>}
+                    {onOpenSignup && <button type="button" className="btn-link-action" onClick={onOpenSignup}>Create student account</button>}
+                  </div>
+                )}
               </div>
             )}
 
@@ -646,8 +651,6 @@ export default function StudentDashboard({
               })}
             </div>
           </section>
-
-          <UpcomingEvents />
 
           {/* 4. Personal Goals Dashboard */}
           <section className="dashboard-panel" aria-labelledby="goals-heading">

@@ -78,13 +78,7 @@ describe('Personalized Student Dashboard', () => {
     expect(screen.getByText(/React Architecture & State Performance Review/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Dr. Priya Kulkarni/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Pending requests are not provided by the booking service/i)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Upcoming Events' })).toBeInTheDocument();
-    expect(screen.getByText('Designing Scalable AI Features for Student Projects')).toBeInTheDocument();
-    expect(screen.getByText('Build and Ship a Production-Ready React Feature')).toBeInTheDocument();
-    expect(screen.getByText('Capstone Project Clinic: Bring Your Architecture Questions')).toBeInTheDocument();
-    expect(screen.getByText('Webinar')).toBeInTheDocument();
-    expect(screen.getByText('Workshop')).toBeInTheDocument();
-    expect(screen.getByText('Mentoring')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Upcoming Events' })).not.toBeInTheDocument();
     expect(screen.getByText('Expert Mentors')).toBeInTheDocument();
     expect(screen.getByText('Completed Bookings')).toBeInTheDocument();
     expect(screen.getByText('8')).toBeInTheDocument();

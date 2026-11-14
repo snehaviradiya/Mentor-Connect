@@ -1,8 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import App, { AppContent } from '../App.jsx';
+import App from '../App.jsx';
 import MentorCardSkeleton from '../components/MentorCardSkeleton.jsx';
-import { ToastProvider } from '../context/ToastContext.jsx';
+
+vi.mock('../services/api.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  const { MOCK_MENTORS } = await import('../data/mockMentors.js');
+  return {
+    ...actual,
+    fetchMentors: vi.fn().mockResolvedValue({
+      status: 'success',
+      data: { mentors: MOCK_MENTORS },
+    }),
+  };
+});
 
 describe('Mentor Skeleton Loading', () => {
   it('renders standalone MentorCardSkeleton with expected placeholder layout', () => {

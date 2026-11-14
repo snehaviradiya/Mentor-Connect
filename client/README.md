@@ -1,16 +1,28 @@
-# React + Vite
+# Mentor Connect — Web Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The client is a React application built with Vite. In development, Vite proxies `/api` requests to `http://localhost:5000`; start the backend before using account, discovery, booking, dashboard, or session features.
 
-Currently, two official plugins are available:
+## Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev
+```
 
-## React Compiler
+Open [http://localhost:5173](http://localhost:5173). To create a production build:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm run build
+npm run preview
+```
 
-## Expanding the Oxlint configuration
+## Checks
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+```bash
+npm test
+npm run lint
+```
+
+The client tests use local fixtures to isolate component behavior. The running application fetches the mentor directory and availability from the backend; it does not silently substitute mock records on API failures.
+
+Authentication tokens and the current user are stored in `sessionStorage` to survive page refreshes in the current browser session. Signing out clears those values.

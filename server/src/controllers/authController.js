@@ -89,6 +89,69 @@ export async function register(req, res, next) {
       },
     });
   } catch (err) {
+    if (err?.code === 'P2002' && err?.meta?.target?.includes('email')) {
+      return next(new AppError('An account with this email address already exists.', 409, 'DUPLICATE_EMAIL'));
+    }
+    next(err);
+  }
+}
+
+export async function updateMe(req, res, next) {
+  try {
+    const { name, university, major, graduationYear, title, category, bio, expertise, mentoringTopics } = req.body;
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: req.user.id },
+        data: name === undefined ? {} : { name: name.trim() },
+        include: { mentorProfile: true, menteeProfile: true },
+      });
+
+      if (user.role === 'STUDENT' && user.menteeProfile) {
+        await tx.menteeProfile.update({
+          where: { id: user.menteeProfile.id },
+          data: {
+            ...(university === undefined ? {} : { university: university.trim() || null }),
+            ...(major === undefined ? {} : { major: major.trim() || null }),
+            ...(graduationYear === undefined ? {} : { graduationYear }),
+          },
+        });
+      } else if (user.role === 'MENTOR' && user.mentorProfile) {
+        await tx.mentorProfile.update({
+          where: { id: user.mentorProfile.id },
+          data: {
+            ...(title === undefined ? {} : { title: title.trim() }),
+            ...(category === undefined ? {} : { category: category.trim() }),
+            ...(bio === undefined ? {} : { bio: bio.trim() }),
+            ...(expertise === undefined ? {} : { expertise: JSON.stringify(expertise.map((item) => item.trim())) }),
+            ...(mentoringTopics === undefined ? {} : { mentoringTopics: JSON.stringify(mentoringTopics.map((item) => item.trim())) }),
+          },
+        });
+      } else if ([university, major, graduationYear, title, category, bio, expertise, mentoringTopics]
+        .some((value) => value !== undefined)) {
+        throw new AppError('The profile for this account is unavailable.', 409, 'PROFILE_NOT_FOUND');
+      }
+
+      return tx.user.findUnique({
+        where: { id: user.id },
+        include: { mentorProfile: true, menteeProfile: true },
+      });
+    });
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        user: {
+          id: updatedUser.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          mentorProfile: updatedUser.mentorProfile,
+          menteeProfile: updatedUser.menteeProfile,
+          createdAt: updatedUser.createdAt,
+        },
+      },
+    });
+  } catch (err) {
     next(err);
   }
 }

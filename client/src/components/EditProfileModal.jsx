@@ -113,19 +113,12 @@ export default function EditProfileModal({ mentor, onClose, onSave }) {
     };
 
     try {
-      // Attempt server update
-      let response = null;
-      try {
-        response = await updateMentorProfile(mentor.id, updatedData);
-      } catch (apiErr) {
-        // If server is not running or network fails, log and fallback to client-side optimistic update
-        console.warn('API update failed, applying optimistic update in demo mode:', apiErr);
-      }
-
+      const response = await updateMentorProfile(mentor.id, updatedData);
+      if (!response?.data?.mentor) throw new Error('The server returned an incomplete profile update.');
       const mergedMentor = {
         ...mentor,
         ...updatedData,
-        ...(response?.data?.mentor || {}),
+        ...response.data.mentor,
       };
 
       onSave(mergedMentor);

@@ -76,6 +76,8 @@ export function validateBookingInput(req, res, next) {
 
   if (notes && typeof notes === 'string' && notes.length > 500) {
     errors.push('notes cannot exceed 500 characters.');
+  } else if (notes !== undefined && typeof notes !== 'string') {
+    errors.push('notes must be a string.');
   }
 
   if (errors.length > 0) {
@@ -112,8 +114,8 @@ export function validateRegistrationInput(req, res, next) {
     errors.push('A valid email address is required.');
   }
 
-  if (!password || typeof password !== 'string' || password.length < 6) {
-    errors.push('Password is required and must be at least 6 characters.');
+  if (!password || typeof password !== 'string' || password.length < 8) {
+    errors.push('Password is required and must be at least 8 characters.');
   }
 
   const allowedRoles = ['STUDENT', 'MENTOR'];
@@ -130,6 +132,68 @@ export function validateRegistrationInput(req, res, next) {
   req.body.email = trimmedEmail.toLowerCase();
   req.body.role = userRole;
 
+  next();
+}
+
+export function validateProfileUpdate(req, res, next) {
+  const {
+    name,
+    university,
+    major,
+    graduationYear,
+    title,
+    category,
+    bio,
+    expertise,
+    mentoringTopics,
+    sampleAvailability,
+    education,
+    experience,
+  } = req.body;
+  const errors = [];
+
+  if (name !== undefined && (typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 100)) {
+    errors.push('name must be between 2 and 100 characters.');
+  }
+  if (university !== undefined && (typeof university !== 'string' || university.trim().length > 120)) {
+    errors.push('university must be a string of at most 120 characters.');
+  }
+  if (major !== undefined && (typeof major !== 'string' || major.trim().length > 120)) {
+    errors.push('major must be a string of at most 120 characters.');
+  }
+  if (graduationYear !== undefined && graduationYear !== null &&
+    (!Number.isInteger(graduationYear) || graduationYear < 1900 || graduationYear > 2200)) {
+    errors.push('graduationYear must be a valid year.');
+  }
+  if (title !== undefined && (typeof title !== 'string' || title.trim().length > 160)) {
+    errors.push('title must be a string of at most 160 characters.');
+  }
+  if (category !== undefined && (typeof category !== 'string' || category.trim().length > 100)) {
+    errors.push('category must be a string of at most 100 characters.');
+  }
+  if (bio !== undefined && (typeof bio !== 'string' || bio.trim().length > 1000)) {
+    errors.push('bio must be a string of at most 1000 characters.');
+  }
+  for (const [field, value, max] of [
+    ['sampleAvailability', sampleAvailability, 200],
+    ['education', education, 200],
+    ['experience', experience, 100],
+  ]) {
+    if (value !== undefined && (typeof value !== 'string' || value.trim().length > max)) {
+      errors.push(`${field} must be a string of at most ${max} characters.`);
+    }
+  }
+  for (const [field, value] of [['expertise', expertise], ['mentoringTopics', mentoringTopics]]) {
+    if (value !== undefined &&
+      (!Array.isArray(value) || value.length > 30 ||
+        value.some((item) => typeof item !== 'string' || !item.trim() || item.length > 100))) {
+      errors.push(`${field} must be an array of up to 30 non-empty strings.`);
+    }
+  }
+
+  if (errors.length) {
+    return next(new AppError('Validation failed', 400, 'VALIDATION_ERROR', errors));
+  }
   next();
 }
 

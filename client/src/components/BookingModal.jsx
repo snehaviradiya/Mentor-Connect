@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { DEMO_TIME_SLOTS } from '../data/mockMentors.js';
-import { createBooking } from '../services/api.js';
+import { createBooking, fetchMentorAvailability } from '../services/api.js';
 import { useToast } from '../context/ToastContext.jsx';
 import ProgressSteps from './ProgressSteps.jsx';
 
@@ -13,16 +12,19 @@ function getTodayDateString() {
   return `${year}-${month}-${day}`;
 }
 
-export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
+export default function BookingModal({ mentor, currentUser, onClose, onBookingSuccess }) {
   const modalRef = useRef(null);
   const firstInputRef = useRef(null);
   const toast = useToast();
 
   // Form field states
-  const [studentName, setStudentName] = useState('');
-  const [studentEmail, setStudentEmail] = useState('');
+  const [studentName, setStudentName] = useState(currentUser?.name || '');
+  const [studentEmail, setStudentEmail] = useState(currentUser?.email || '');
   const [sessionDate, setSessionDate] = useState('');
   const [selectedSlotId, setSelectedSlotId] = useState('');
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState('');
   const [sessionTopic, setSessionTopic] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -47,6 +49,37 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
   const currentBookingStep = submissionResult === 'success'
     ? 2
     : completedBookingSteps;
+
+  useEffect(() => {
+    if (!sessionDate) {
+      setAvailableSlots([]);
+      setSelectedSlotId('');
+      setAvailabilityError('');
+      return;
+    }
+
+    let active = true;
+    setAvailabilityLoading(true);
+    setAvailabilityError('');
+    setSelectedSlotId('');
+    fetchMentorAvailability(mentor.id, sessionDate)
+      .then((response) => {
+        if (!active) return;
+        const slots = response?.data?.slots;
+        if (!Array.isArray(slots)) throw new Error('The availability response was incomplete.');
+        setAvailableSlots(slots);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setAvailableSlots([]);
+        setAvailabilityError(error.message || 'Unable to load availability for this date.');
+      })
+      .finally(() => {
+        if (active) setAvailabilityLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [mentor.id, sessionDate]);
 
   // Focus trap and Escape key listener
   useEffect(() => {
@@ -123,7 +156,7 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
     }
 
     if (!selectedSlotId) {
-      newErrors.selectedSlotId = 'Please select a demo time slot.';
+      newErrors.selectedSlotId = 'Please select an available time slot.';
     }
 
     const trimmedTopic = sessionTopic.trim();
@@ -153,8 +186,13 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
     setIsSubmitting(true);
     setServerError(null);
 
-    const chosenSlot = DEMO_TIME_SLOTS.find((s) => s.id === selectedSlotId);
-    const timeSlotLabel = chosenSlot ? chosenSlot.label : selectedSlotId;
+    const chosenSlot = availableSlots.find((slot) => slot.id === selectedSlotId);
+    if (!chosenSlot) {
+      setErrors((previous) => ({ ...previous, selectedSlotId: 'Choose an available slot for the selected date.' }));
+      setIsSubmitting(false);
+      return;
+    }
+    const timeSlotLabel = chosenSlot.label;
 
     const payload = {
       mentorId: mentor.id,
@@ -252,7 +290,7 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
         <div className="modal-header">
           <div>
             <h2 id="booking-modal-title" className="modal-title">
-              Request a Demo Session
+              Book a Session
             </h2>
             <p className="modal-subtitle">
               With <strong>{mentor.name}</strong> • {mentor.category}
@@ -269,12 +307,11 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
           </button>
         </div>
 
-        {/* API Integration Notice */}
         <div className="demo-modal-alert" role="note">
           <span className="demo-alert-icon" aria-hidden="true">ℹ️</span>
           <p>
-            <strong>Live Booking Integration:</strong> Session requests are validated and recorded by
-            the Mentor Connect API. Bookings are stored in memory during Milestone 3.
+            <strong>Live booking:</strong> Choose an open slot from {mentor.name}&apos;s saved availability.
+            Your account identity is attached to the booking.
           </p>
         </div>
 
@@ -469,7 +506,7 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
               )}
             </div>
 
-            {/* Session Date & Demo Slot Selection (Row) */}
+            {/* Session Date and live slot selection */}
             <div className="form-row">
               <div className="form-group flex-1">
                 <label htmlFor="session-date" className="form-label">
@@ -500,7 +537,7 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
 
               <div className="form-group flex-1">
                 <label htmlFor="demo-time-slot" className="form-label">
-                  Demo Time Slot <span className="required-star">*</span>
+                  Available Time Slot <span className="required-star">*</span>
                 </label>
                 <select
                   id="demo-time-slot"
@@ -513,13 +550,15 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
                   }}
                   aria-invalid={!!errors.selectedSlotId}
                   aria-describedby={errors.selectedSlotId ? 'demo-time-slot-error' : 'slot-hint'}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !sessionDate || availabilityLoading}
                   required
                 >
-                  <option value="">-- Select an illustrative slot --</option>
-                  {DEMO_TIME_SLOTS.map((slot) => (
-                    <option key={slot.id} value={slot.id}>
-                      {slot.label}
+                  <option value="">
+                    {availabilityLoading ? 'Loading availability…' : '-- Select an available slot --'}
+                  </option>
+                  {availableSlots.map((slot) => (
+                    <option key={slot.id} value={slot.id} disabled={!slot.isBookable}>
+                      {slot.label}{slot.isBooked ? ' (booked)' : !slot.isBookable ? ' (unavailable)' : ''}
                     </option>
                   ))}
                 </select>
@@ -529,7 +568,9 @@ export default function BookingModal({ mentor, onClose, onBookingSuccess }) {
                   </p>
                 ) : (
                   <p id="slot-hint" className="field-hint">
-                    Select a consultation time window with {mentor.name}.
+                    {availabilityError || (availableSlots.length
+                      ? `Select an open consultation time with ${mentor.name}.`
+                      : sessionDate ? 'No availability is published for this date.' : 'Choose a date to view open slots.')}
                   </p>
                 )}
               </div>

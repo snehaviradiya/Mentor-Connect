@@ -1,93 +1,84 @@
 # Mentor Connect — Backend Service
 
-**Backend Ownership:** Sneha Viradiya  
-**Stack:** Node.js, Express.js, Prisma ORM, SQLite / PostgreSQL, JWT, bcryptjs, Vitest, Supertest  
-**Base URL:** `http://localhost:5000/api`  
+**Stack:** Node.js, Express.js, Prisma ORM, SQLite, JWT, bcryptjs, Vitest, Supertest
+**Base URL:** `http://localhost:5000/api`
 
----
+## Overview
 
-## 1. Overview
+The backend provides account and profile APIs, mentor discovery and availability, bookings, role-scoped dashboards, session lifecycle, chat, shared resources, reviews, notifications, and meeting configuration. Booking records and private profile data are scoped to authenticated users and roles.
 
-The Mentor Connect backend provides the core APIs, business logic, scheduling engine, and database persistence layer for the Mentor Connect platform. It supports user registration, authentication, mentor profile discovery, slot availability management, and concurrency-safe appointment booking.
+## Quick Start
 
----
+### Prerequisites
 
-## 2. Quick Start
+- Node.js 20 or newer
+- npm
 
-### 2.1 Prerequisites
-- Node.js v20+ (developed and verified on v25.3.0)
-- npm v10+ (verified on v11.7.0)
+### Configure and install
 
-### 2.2 Setup Environment
 ```bash
 cp .env.example .env
-```
-Default configuration points to SQLite for local development (`DATABASE_URL="file:./dev.db"`).
-
-### 2.3 Install Dependencies
-```bash
 npm install
 ```
 
-### 2.4 Apply Database Migrations & Seed Data
+Set `JWT_SECRET` in `.env` to a private random value of at least 32 characters. For example:
+
 ```bash
-npm run db:migrate
+node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
+```
+
+Do not use a public or committed JWT secret in a deployed environment. The local database is SQLite (`DATABASE_URL="file:./dev.db"`).
+
+### Migrate and seed local demo data
+
+```bash
+npx prisma migrate deploy
 npm run db:seed
 ```
-This sets up the relational database and populates 8 mentor profiles with full availability schedules, an admin user, a student account, and sample bookings.
 
-### 2.5 Start Development Server
+Seeding upserts illustrative local accounts and mentor profiles; it does not delete the database. Existing mentor availability is preserved, and demo slots are added only when none exist. Use this for local development, not as production account provisioning.
+
+### Start the API
+
 ```bash
 npm run dev
 ```
-The server will start on [http://localhost:5000](http://localhost:5000) with watch mode enabled.
 
----
+The server listens on [http://localhost:5000](http://localhost:5000). Verify it with:
 
-## 3. Available npm Scripts
+```bash
+curl http://localhost:5000/api/health
+```
+
+## Available npm Scripts
 
 | Command | Purpose |
 | :--- | :--- |
-| `npm run dev` | Starts Express server with Node `--watch` auto-reloading |
-| `npm start` | Starts Express server in production mode |
-| `npm test` | Runs the automated test suite with Vitest (38 unit & integration tests) |
-| `npm run db:migrate` | Runs Prisma schema migrations |
+| `npm run dev` | Starts Express with Node `--watch` auto-reloading |
+| `npm start` | Starts the API |
+| `npm test` | Creates a temporary SQLite database, applies migrations and seed data, runs Vitest, and removes that database |
+| `npm run db:migrate` | Runs Prisma's development migration workflow |
 | `npm run db:generate` | Generates the Prisma Client |
-| `npm run db:seed` | Populates database with canonical mentors, users, and availability |
-| `npm run db:studio` | Opens Prisma Studio GUI at `http://localhost:5555` |
+| `npm run db:seed` | Upserts local demo users, mentors, availability, and sample booking data |
+| `npm run db:studio` | Opens Prisma Studio |
 
----
+The test runner uses its own temporary database and a test-only JWT secret; it does not use or clear the development database.
 
-## 4. API Architecture
+## API Architecture
 
-```
+```text
 server/src/
-├── app.js                    # Express app configuration & middleware pipeline
-├── server.js                 # HTTP listener & graceful shutdown handlers
-├── prisma.js                 # Singleton Prisma client instance
-├── controllers/
-│   ├── authController.js     # User registration, login, and profile lookup
-│   ├── mentorController.js   # Mentor directory, keyword search, & availability
-│   └── bookingController.js  # Booking creation, conflict verification, & cancellation
-├── middleware/
-│   ├── auth.js               # JWT authentication & role-based authorization
-│   ├── validator.js          # Input validation & sanitization
-│   └── errorHandler.js       # Centralized error formatting & status handler
-├── routes/
-│   ├── authRoutes.js         # /api/auth/*
-│   ├── mentorRoutes.js       # /api/mentors/*
-│   └── bookingRoutes.js      # /api/bookings/*
-└── test/
-    ├── health.test.js        # Health check & 404 tests
-    ├── auth.test.js          # Registration, login, JWT verification tests
-    ├── mentors.test.js       # Discovery, search, and availability tests
-    └── bookings.test.js      # Concurrency, double-booking prevention, & cancellation tests
+├── app.js                    # Express app configuration and middleware
+├── server.js                 # HTTP listener, JWT configuration check, graceful shutdown
+├── prisma.js                 # Prisma client
+├── controllers/               # Account, mentor, booking, dashboard, and session operations
+├── middleware/                # JWT authorization, validation, and error handling
+├── routes/                    # /api/auth, /api/mentors, /api/bookings, /api/sessions, /api/dashboard
+└── test/                      # API, authorization, booking, and session integration tests
 ```
 
----
+## Documentation and Database Notes
 
-## 5. Documentation Links
-
-- **Backend Architecture Audit:** [`docs/BACKEND_AUDIT.md`](../docs/BACKEND_AUDIT.md)
-- **Complete REST API Specification:** [`docs/API.md`](../docs/API.md)
-- **Database Schema & PostgreSQL Guide:** [`docs/DATABASE.md`](../docs/DATABASE.md)
+- [Complete REST API reference](../docs/API.md)
+- [Database schema and notes](../docs/DATABASE.md)
+- The checked-in Prisma schema currently targets SQLite. A production database provider and deployment configuration are not included.

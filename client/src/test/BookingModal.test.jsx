@@ -17,6 +17,17 @@ vi.mock('../services/api.js', () => {
   return {
     createBooking: vi.fn(),
     fetchMentors: vi.fn(),
+    fetchMentorAvailability: vi.fn(async () => ({
+      status: 'success',
+      data: {
+        slots: [
+          { id: 'slot-1', label: '10:00 AM – 11:00 AM IST', isBookable: true, isBooked: false },
+          { id: 'slot-2', label: '02:00 PM – 03:00 PM IST', isBookable: true, isBooked: false },
+          { id: 'slot-3', label: '04:00 PM – 05:00 PM IST', isBookable: true, isBooked: false },
+          { id: 'slot-4', label: '05:30 PM – 06:30 PM IST', isBookable: true, isBooked: false },
+        ],
+      },
+    })),
     ApiError: MockApiError,
   };
 });
@@ -27,6 +38,16 @@ const mockMentor = {
   category: 'Software Engineering',
 };
 
+async function chooseAvailability(date, slotId) {
+  fireEvent.change(screen.getByLabelText(/Session Date/i), { target: { value: date } });
+  await waitFor(() => {
+    expect(
+      screen.getByLabelText(/Available Time Slot/i).querySelector(`option[value="${slotId}"]`)
+    ).not.toBeNull();
+  });
+  fireEvent.change(screen.getByLabelText(/Available Time Slot/i), { target: { value: slotId } });
+}
+
 describe('Booking Modal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -36,17 +57,17 @@ describe('Booking Modal', () => {
     render(<BookingModal mentor={mockMentor} onClose={vi.fn()} />);
 
     expect(
-      screen.getByRole('heading', { name: /Request a Demo Session/i, level: 2 })
+      screen.getByRole('heading', { name: /Book a Session/i, level: 2 })
     ).toBeInTheDocument();
     expect(screen.getAllByText(/Aarav Sharma/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Live Booking Integration/i)).toBeInTheDocument();
+    expect(screen.getByText(/Live booking/i)).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Submit Booking Request/i })
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Booking completion')).toHaveAttribute('aria-valuenow', '0');
   });
 
-  it('animates booking progress as contact, schedule, and request details are completed', () => {
+  it('animates booking progress as contact, schedule, and request details are completed', async () => {
     render(<BookingModal mentor={mockMentor} onClose={vi.fn()} />);
     const progress = screen.getByLabelText('Booking completion');
     fireEvent.change(screen.getByLabelText(/Your Full Name/i), {
@@ -57,12 +78,7 @@ describe('Booking Modal', () => {
     });
     expect(progress).toHaveAttribute('aria-valuenow', '33');
 
-    fireEvent.change(screen.getByLabelText(/Session Date/i), {
-      target: { value: '2026-11-15' },
-    });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
-      target: { value: 'slot-1' },
-    });
+    await chooseAvailability('2026-11-15', 'slot-1');
     expect(progress).toHaveAttribute('aria-valuenow', '67');
 
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
@@ -80,7 +96,7 @@ describe('Booking Modal', () => {
     expect(screen.getByText(/Full name is required/i)).toBeInTheDocument();
     expect(screen.getByText(/Email address is required/i)).toBeInTheDocument();
     expect(screen.getByText(/Session date is required/i)).toBeInTheDocument();
-    expect(screen.getByText(/Please select a demo time slot/i)).toBeInTheDocument();
+    expect(screen.getByText(/Please select an available time slot/i)).toBeInTheDocument();
     expect(screen.getByText(/Session objective\/topic is required/i)).toBeInTheDocument();
 
     expect(createBooking).not.toHaveBeenCalled();
@@ -158,12 +174,7 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/University Email Address/i), {
       target: { value: '  abhay@adypu.edu.in  ' },
     });
-    fireEvent.change(screen.getByLabelText(/Session Date/i), {
-      target: { value: '2026-11-15' },
-    });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
-      target: { value: 'slot-1' },
-    });
+    await chooseAvailability('2026-11-15', 'slot-1');
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
       target: { value: '  Architecture Review  ' },
     });
@@ -206,12 +217,7 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/University Email Address/i), {
       target: { value: 'abhay@adypu.edu.in' },
     });
-    fireEvent.change(screen.getByLabelText(/Session Date/i), {
-      target: { value: '2026-11-01' },
-    });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
-      target: { value: 'slot-1' },
-    });
+    await chooseAvailability('2026-11-01', 'slot-1');
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
       target: { value: 'Code Review' },
     });
@@ -278,12 +284,7 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/University Email Address/i), {
       target: { value: 'abhay@adypu.edu.in' },
     });
-    fireEvent.change(screen.getByLabelText(/Session Date/i), {
-      target: { value: '2026-11-01' },
-    });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
-      target: { value: 'slot-2' },
-    });
+    await chooseAvailability('2026-11-01', 'slot-2');
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
       target: { value: 'Career Advice' },
     });
@@ -323,12 +324,7 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/University Email Address/i), {
       target: { value: 'abhay@adypu.edu.in' },
     });
-    fireEvent.change(screen.getByLabelText(/Session Date/i), {
-      target: { value: '2026-11-01' },
-    });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
-      target: { value: 'slot-3' },
-    });
+    await chooseAvailability('2026-11-01', 'slot-3');
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
       target: { value: 'System Architecture' },
     });
@@ -370,12 +366,7 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/University Email Address/i), {
       target: { value: 'abhay@adypu.edu.in' },
     });
-    fireEvent.change(screen.getByLabelText(/Session Date/i), {
-      target: { value: '2026-11-01' },
-    });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
-      target: { value: 'slot-1' },
-    });
+    await chooseAvailability('2026-11-01', 'slot-1');
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
       target: { value: 'Test Topic' },
     });
@@ -401,12 +392,7 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/University Email Address/i), {
       target: { value: 'abhay@adypu.edu.in' },
     });
-    fireEvent.change(screen.getByLabelText(/Session Date/i), {
-      target: { value: '2026-11-01' },
-    });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
-      target: { value: 'slot-1' },
-    });
+    await chooseAvailability('2026-11-01', 'slot-1');
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
       target: { value: 'Test Topic' },
     });
@@ -432,12 +418,7 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/University Email Address/i), {
       target: { value: 'abhay@adypu.edu.in' },
     });
-    fireEvent.change(screen.getByLabelText(/Session Date/i), {
-      target: { value: '2026-11-01' },
-    });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
-      target: { value: 'slot-1' },
-    });
+    await chooseAvailability('2026-11-01', 'slot-1');
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
       target: { value: 'Test Topic' },
     });
@@ -467,12 +448,7 @@ describe('Booking Modal', () => {
     fireEvent.change(screen.getByLabelText(/University Email Address/i), {
       target: { value: 'abhay@adypu.edu.in' },
     });
-    fireEvent.change(screen.getByLabelText(/Session Date/i), {
-      target: { value: '2026-11-01' },
-    });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
-      target: { value: 'slot-1' },
-    });
+    await chooseAvailability('2026-11-01', 'slot-1');
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
       target: { value: 'Test Topic' },
     });

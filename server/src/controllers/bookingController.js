@@ -51,9 +51,6 @@ function isUniqueConflictError(err) {
  */
 export async function createBooking(req, res, next) {
   try {
-    if (req.user && req.user.role !== 'STUDENT') {
-      throw new AppError('Only students can create bookings.', 403, 'FORBIDDEN');
-    }
     const { mentorId, studentName, studentEmail, sessionDate, timeSlot, sessionTopic, notes } = req.body;
 
     // 1. Verify mentor existence
@@ -80,46 +77,39 @@ export async function createBooking(req, res, next) {
     const mentorName = mentor.user?.name || 'Mentor';
 
     // 2. Validate requested slot against mentor's configured availability schedule
-    if (mentor.availabilities && mentor.availabilities.length > 0) {
-      const targetDayOfWeek = new Date(`${sessionDate}T00:00:00.000Z`).getUTCDay();
-      const matchingSlot = mentor.availabilities.find((slot) => {
-        if (slot.slotLabel !== timeSlot) return false;
-        if (slot.specificDate) return slot.specificDate === sessionDate;
-        if (slot.dayOfWeek !== null && slot.dayOfWeek !== undefined) {
-          return slot.dayOfWeek === targetDayOfWeek;
-        }
-        return true;
-      });
-
-      if (!matchingSlot) {
-        throw new AppError(
-          `The selected time slot (${timeSlot}) is not offered by ${mentorName} on ${sessionDate}.`,
-          400,
-          'SLOT_NOT_AVAILABLE'
-        );
+    const targetDayOfWeek = new Date(`${sessionDate}T00:00:00.000Z`).getUTCDay();
+    const matchingSlot = mentor.availabilities.find((slot) => {
+      if (slot.slotLabel !== timeSlot) return false;
+      if (slot.specificDate) return slot.specificDate === sessionDate;
+      if (slot.dayOfWeek !== null && slot.dayOfWeek !== undefined) {
+        return slot.dayOfWeek === targetDayOfWeek;
       }
+      return true;
+    });
 
-      if (!matchingSlot.isBookable) {
-        throw new AppError(
-          `The selected time slot (${timeSlot}) is currently marked as unavailable for booking.`,
-          400,
-          'SLOT_NOT_BOOKABLE'
-        );
-      }
+    if (!matchingSlot) {
+      throw new AppError(
+        `The selected time slot (${timeSlot}) is not offered by ${mentorName} on ${sessionDate}.`,
+        400,
+        'SLOT_NOT_AVAILABLE'
+      );
+    }
+
+    if (!matchingSlot.isBookable) {
+      throw new AppError(
+        `The selected time slot (${timeSlot}) is currently marked as unavailable for booking.`,
+        400,
+        'SLOT_NOT_BOOKABLE'
+      );
     }
 
     // 3. Identify linked mentee profile if available (via authenticated session or email lookup)
-    let menteeId = null;
-    let verifiedStudentName = studentName;
-    let verifiedStudentEmail = studentEmail;
-    if (req.user) {
-      if (!req.user.menteeProfile) {
-        throw new AppError('Student profile is unavailable.', 403, 'FORBIDDEN');
-      }
-      menteeId = req.user.menteeProfile.id;
-      verifiedStudentName = req.user.name;
-      verifiedStudentEmail = req.user.email;
+    if (!req.user.menteeProfile) {
+      throw new AppError('Student profile is unavailable.', 403, 'FORBIDDEN');
     }
+    const menteeId = req.user.menteeProfile.id;
+    const verifiedStudentName = req.user.name;
+    const verifiedStudentEmail = req.user.email;
 
     // 3. Concurrency-safe atomic transaction for conflict check & creation
     const transactionResult = await prisma.$transaction(async (tx) => {
@@ -156,7 +146,7 @@ export async function createBooking(req, res, next) {
         },
       });
 
-      const session = await ensureSessionForBooking(tx, booking, req.user?.id || null);
+      const session = await ensureSessionForBooking(tx, booking, req.user.id);
       return { booking, session };
     }).catch((err) => {
       if (isUniqueConflictError(err)) {
@@ -177,7 +167,7 @@ export async function createBooking(req, res, next) {
         entityType: 'booking',
         entityId: transactionResult.booking.id,
       }),
-      req.user?.id
+      req.user.id
         ? createUserNotification(req.user.id, {
             type: 'BOOKING_CONFIRMED',
             title: 'Booking confirmed',
@@ -401,32 +391,30 @@ export async function rescheduleBooking(req, res, next) {
     const mentorName = booking.mentor?.user?.name || 'Mentor';
 
     // Validate rescheduled slot against mentor's configured availability
-    if (booking.mentor?.availabilities && booking.mentor.availabilities.length > 0) {
-      const targetDayOfWeek = new Date(`${sessionDate}T00:00:00.000Z`).getUTCDay();
-      const matchingSlot = booking.mentor.availabilities.find((slot) => {
-        if (slot.slotLabel !== timeSlot) return false;
-        if (slot.specificDate) return slot.specificDate === sessionDate;
-        if (slot.dayOfWeek !== null && slot.dayOfWeek !== undefined) {
-          return slot.dayOfWeek === targetDayOfWeek;
-        }
-        return true;
-      });
-
-      if (!matchingSlot) {
-        throw new AppError(
-          `The selected time slot (${timeSlot}) is not offered by ${mentorName} on ${sessionDate}.`,
-          400,
-          'SLOT_NOT_AVAILABLE'
-        );
+    const targetDayOfWeek = new Date(`${sessionDate}T00:00:00.000Z`).getUTCDay();
+    const matchingSlot = booking.mentor.availabilities.find((slot) => {
+      if (slot.slotLabel !== timeSlot) return false;
+      if (slot.specificDate) return slot.specificDate === sessionDate;
+      if (slot.dayOfWeek !== null && slot.dayOfWeek !== undefined) {
+        return slot.dayOfWeek === targetDayOfWeek;
       }
+      return true;
+    });
 
-      if (!matchingSlot.isBookable) {
-        throw new AppError(
-          `The selected time slot (${timeSlot}) is currently marked as unavailable for booking.`,
-          400,
-          'SLOT_NOT_BOOKABLE'
-        );
-      }
+    if (!matchingSlot) {
+      throw new AppError(
+        `The selected time slot (${timeSlot}) is not offered by ${mentorName} on ${sessionDate}.`,
+        400,
+        'SLOT_NOT_AVAILABLE'
+      );
+    }
+
+    if (!matchingSlot.isBookable) {
+      throw new AppError(
+        `The selected time slot (${timeSlot}) is currently marked as unavailable for booking.`,
+        400,
+        'SLOT_NOT_BOOKABLE'
+      );
     }
 
     const updatedBooking = await prisma.$transaction(async (tx) => {

@@ -21,6 +21,15 @@ vi.mock('../services/api.js', () => {
     createBooking: vi.fn(),
     updateMentorProfile: vi.fn(),
     fetchMentors: vi.fn(),
+    fetchMentorAvailability: vi.fn(async () => ({
+      status: 'success',
+      data: {
+        slots: [
+          { id: 'slot-1', label: '10:00 AM – 11:00 AM IST', isBookable: true, isBooked: false },
+          { id: 'slot-4', label: '05:30 PM – 06:30 PM IST', isBookable: true, isBooked: false },
+        ],
+      },
+    })),
     ApiError: MockApiError,
   };
 });
@@ -38,6 +47,16 @@ const sampleMentor = {
   experience: '6+ years in industry',
   mentoringTopics: ['Frontend Architecture', 'Technical Interview Prep'],
 };
+
+async function chooseAvailability(date, slotId) {
+  fireEvent.change(screen.getByLabelText(/Session Date/i), { target: { value: date } });
+  await waitFor(() => {
+    expect(
+      screen.getByLabelText(/Available Time Slot/i).querySelector(`option[value="${slotId}"]`)
+    ).not.toBeNull();
+  });
+  fireEvent.change(screen.getByLabelText(/Available Time Slot/i), { target: { value: slotId } });
+}
 
 describe('Notifications & Feedback Messages (Booking & Profile Update)', () => {
   beforeEach(() => {
@@ -71,12 +90,7 @@ describe('Notifications & Feedback Messages (Booking & Profile Update)', () => {
     fireEvent.change(screen.getByLabelText(/University Email Address/i), {
       target: { value: 'sneha@adypu.edu.in' },
     });
-    fireEvent.change(screen.getByLabelText(/Session Date/i), {
-      target: { value: '2026-11-05' },
-    });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
-      target: { value: 'slot-1' },
-    });
+    await chooseAvailability('2026-11-05', 'slot-1');
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
       target: { value: 'React Architecture Review' },
     });
@@ -109,12 +123,7 @@ describe('Notifications & Feedback Messages (Booking & Profile Update)', () => {
     fireEvent.change(screen.getByLabelText(/University Email Address/i), {
       target: { value: 'sneha@adypu.edu.in' },
     });
-    fireEvent.change(screen.getByLabelText(/Session Date/i), {
-      target: { value: '2026-11-05' },
-    });
-    fireEvent.change(screen.getByLabelText(/Demo Time Slot/i), {
-      target: { value: 'slot-4' },
-    });
+    await chooseAvailability('2026-11-05', 'slot-4');
     fireEvent.change(screen.getByLabelText(/Session Objective \/ Topic/i), {
       target: { value: 'Conflict slot test' },
     });
@@ -133,7 +142,12 @@ describe('Notifications & Feedback Messages (Booking & Profile Update)', () => {
   it('opens edit profile modal from MentorProfile view', () => {
     render(
       <ToastProvider>
-        <MentorProfile mentor={sampleMentor} onBack={vi.fn()} onUpdateMentor={vi.fn()} />
+        <MentorProfile
+          mentor={sampleMentor}
+          currentUser={{ role: 'MENTOR', mentorProfile: { id: sampleMentor.id } }}
+          onBack={vi.fn()}
+          onUpdateMentor={vi.fn()}
+        />
       </ToastProvider>
     );
 
@@ -162,6 +176,7 @@ describe('Notifications & Feedback Messages (Booking & Profile Update)', () => {
       <ToastProvider>
         <MentorProfile
           mentor={sampleMentor}
+          currentUser={{ role: 'MENTOR', mentorProfile: { id: sampleMentor.id } }}
           onBack={vi.fn()}
           onUpdateMentor={onUpdateMock}
         />

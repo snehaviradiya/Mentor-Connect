@@ -1,10 +1,8 @@
 # Mentor Connect — Database Architecture & Persistence Guide
 
-**Backend Owner:** Sneha Viradiya  
-**Sprint:** Sprint 1 — Backend Engineering & Persistence Foundation  
 **ORM:** Prisma ORM 6.x  
 **Development Engine:** SQLite (`file:./dev.db`)  
-**Production Target:** PostgreSQL (e.g. Supabase, Neon, AWS RDS, Docker)  
+**Production Database:** Not configured or verified in this repository
 
 ---
 
@@ -171,19 +169,19 @@ When an appointment is cancelled via `PATCH /api/bookings/:id/cancel`, its statu
 ### 4.1 Apply Schema Migrations
 ```bash
 cd server
-npm run db:migrate
+npx prisma migrate deploy
 ```
-Applies pending migrations from `prisma/migrations/` and regenerates the Prisma Client.
+Applies checked-in migrations to the SQLite database. Generate the Prisma Client with `npm run db:generate` if needed.
 
 ### 4.2 Seed Database
 ```bash
 npm run db:seed
 ```
-Seeds:
+For local development only, seeding upserts illustrative records; it does not clear the database. Seeded accounts share the development password embedded in the seed script, so do not run the seed script against a public or production database. It creates:
 - 1 Admin user (`admin@adypu.edu.in`)
 - 1 Student user (`abhay@adypu.edu.in`) with MenteeProfile
-- 8 Mentors corresponding to canonical discovery profiles (`mentor-1` through `mentor-8`) with hashed credentials, profiles, and 4 availability slots each
-- 1 Conflict demonstration booking (`bk_seed_demo_01`) for `mentor-1` on slot-4 (`05:30 PM – 06:30 PM IST (Simulated Conflict Slot)`) on `2026-11-01`.
+- 8 illustrative mentor profiles (`mentor-1` through `mentor-8`)
+- Sample availability when a mentor has no existing slots and a conflict demonstration booking (`bk_seed_demo_01`)
 
 ### 4.3 Database GUI (Prisma Studio)
 ```bash
@@ -193,33 +191,6 @@ Opens interactive database inspection GUI in browser at `http://localhost:5555`.
 
 ---
 
-## 5. PostgreSQL Production Migration Guide
+## 5. Production Database Status
 
-The Prisma schema was designed with standard ANSI SQL datatypes and relational constraints to allow seamless migration to PostgreSQL without code rewrites.
-
-### Steps to Switch to PostgreSQL:
-
-1. **Update `prisma/schema.prisma`:**
-   Change the datasource provider:
-   ```prisma
-   datasource db {
-     provider = "postgresql"
-     url      = env("DATABASE_URL")
-   }
-   ```
-
-2. **Configure PostgreSQL URL in `.env`:**
-   ```env
-   DATABASE_URL="postgresql://<user>:<password>@localhost:5432/mentorconnect?schema=public"
-   ```
-   *(For cloud databases like Supabase or Neon, copy their connection string).*
-
-3. **Run Migration for PostgreSQL:**
-   ```bash
-   npx prisma migrate dev --name init_postgres
-   ```
-
-4. **Seed PostgreSQL Database:**
-   ```bash
-   npm run db:seed
-   ```
+The checked-in Prisma datasource and migration lock target SQLite. PostgreSQL is not a configured or tested production target. Switching providers requires changing the Prisma datasource, generating a fresh provider-specific migration history, validating the filtered unique index and all query behavior against PostgreSQL, and testing the seed process against an isolated database. Do not point the current SQLite migration history at a PostgreSQL database.

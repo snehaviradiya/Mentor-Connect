@@ -6,13 +6,12 @@ import {
   cancelBooking,
   rescheduleBooking,
 } from '../controllers/bookingController.js';
-import { optionalAuthenticate, authenticate } from '../middleware/auth.js';
+import { authenticate, requireRole } from '../middleware/auth.js';
 import { validateBookingInput } from '../middleware/validator.js';
 
 const router = Router();
 
-// Guest or authenticated student can request bookings
-router.post('/', optionalAuthenticate, validateBookingInput, createBooking);
+router.post('/', authenticate, requireRole('STUDENT'), validateBookingInput, createBooking);
 
 // Booking records are private to the student, assigned mentor, or admin.
 router.get('/', authenticate, listBookings);

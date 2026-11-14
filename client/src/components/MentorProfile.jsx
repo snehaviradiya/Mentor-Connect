@@ -4,7 +4,15 @@ import EditProfileModal from './EditProfileModal.jsx';
 import ReviewModal from './ReviewModal.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 
-export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookingSuccess }) {
+export default function MentorProfile({
+  mentor,
+  currentUser,
+  onBack,
+  onUpdateMentor,
+  onBookingSuccess,
+  onOpenLogin,
+  onOpenRegistration,
+}) {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -12,6 +20,8 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
   const [justUpdated, setJustUpdated] = useState(false);
   const bookingButtonRef = useRef(null);
   const toast = useToast();
+  const canEditProfile = currentUser?.role === 'ADMIN' ||
+    (currentUser?.role === 'MENTOR' && currentUser.mentorProfile?.id === mentor?.id);
 
   const handleVoteHelpful = (reviewId) => {
     setHelpfulVotes((prev) => {
@@ -133,15 +143,17 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
           >
             <span aria-hidden="true">🔗</span> Share
           </button>
-          <button
-            type="button"
-            className="action-pill-btn edit-btn"
-            onClick={() => setIsEditModalOpen(true)}
-            aria-label={`Edit profile of ${mentor.name}`}
-            id="edit-profile-btn"
-          >
-            <span aria-hidden="true">✏️</span> Edit Profile
-          </button>
+          {canEditProfile && (
+            <button
+              type="button"
+              className="action-pill-btn edit-btn"
+              onClick={() => setIsEditModalOpen(true)}
+              aria-label={`Edit profile of ${mentor.name}`}
+              id="edit-profile-btn"
+            >
+              <span aria-hidden="true">✏️</span> Edit Profile
+            </button>
+          )}
         </div>
       </div>
 
@@ -380,38 +392,40 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
                   <path d="M8 3v4M16 3v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                 </svg>
               </span>
-              <h2 className="sidebar-card-title">Sample Availability</h2>
+              <h2 className="sidebar-card-title">Availability</h2>
             </div>
-
-            {/* Explicit Demo Disclaimer Box */}
-            <div className="booking-notice-box" role="note">
-              <span className="notice-icon" aria-hidden="true">ℹ️</span>
-              <div className="notice-content">
-                <strong>Demonstration Schedule:</strong>
-                <p>
-                  Availability slots shown are demonstration fixtures for Milestone 3B &amp; 3C. Live booking workflows and database persistence will be connected in future milestones.
-                </p>
-                <span className="mock-disclaimer-pill status-pill">Demo Simulation Mode</span>
-              </div>
-            </div>
-
             <div className="slot-details">
-              <span className="slot-label">Typical Available Hours:</span>
-              <p className="slot-time">{mentor.sampleAvailability}</p>
+              <span className="slot-label">Configured schedule:</span>
+              {mentor.availabilities?.length ? (
+                <ul className="profile-availability-list">
+                  {mentor.availabilities.filter((slot) => slot.isBookable).map((slot) => (
+                    <li key={slot.id}>{slot.slotLabel}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="slot-time">No availability has been published yet.</p>
+              )}
+              <p className="slot-time">Choose a date when booking to check live availability.</p>
             </div>
 
-            {/* Enabled Demo Booking Action Button */}
-            <button
-              ref={bookingButtonRef}
-              type="button"
-              className="book-session-action-btn"
-              onClick={() => setIsBookingModalOpen(true)}
-              aria-haspopup="dialog"
-              aria-expanded={isBookingModalOpen}
-              id="book-session-btn"
-            >
-              Request a Demo Session
-            </button>
+            {currentUser?.role === 'STUDENT' ? (
+              <button
+                ref={bookingButtonRef}
+                type="button"
+                className="book-session-action-btn"
+                onClick={() => setIsBookingModalOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={isBookingModalOpen}
+                id="book-session-btn"
+              >
+                Book a Session
+              </button>
+            ) : !currentUser ? (
+              <div className="profile-booking-auth">
+                <button type="button" className="book-session-action-btn" onClick={onOpenLogin}>Sign in to book</button>
+                <button type="button" className="btn-link-action" onClick={onOpenRegistration}>Create a student account</button>
+              </div>
+            ) : null}
           </div>
 
           {/* Student Guidance Callout */}
@@ -439,6 +453,7 @@ export default function MentorProfile({ mentor, onBack, onUpdateMentor, onBookin
       {isBookingModalOpen && (
         <BookingModal
           mentor={mentor}
+          currentUser={currentUser}
           onClose={handleCloseBookingModal}
           onBookingSuccess={onBookingSuccess}
         />

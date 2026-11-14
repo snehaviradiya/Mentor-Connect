@@ -92,7 +92,13 @@ describe('Mentor Discovery', () => {
   });
 
   it('explores weekly availability and filters mentor results by a selected time', () => {
-    const { container } = render(<App />);
+    const mentorsWithAvailability = MOCK_MENTORS.map((mentor) => ({
+      ...mentor,
+      availabilities: mentor.id === 'mentor-1'
+        ? [{ dayOfWeek: 4, slotLabel: '04:00 PM – 05:00 PM IST', isBookable: true }]
+        : [],
+    }));
+    const { container } = render(<App initialMentors={mentorsWithAvailability} />);
 
     expect(
       screen.getByRole('heading', { name: /Explore mentor availability/i })

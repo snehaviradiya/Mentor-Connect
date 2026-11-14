@@ -60,7 +60,7 @@ describe('Authentication and Authorization API', () => {
       expect(res.body.code).toBe('DUPLICATE_EMAIL');
     });
 
-    it('rejects registration with short password (< 6 chars) with 400 VALIDATION_ERROR', async () => {
+    it('rejects registration with short password (< 8 chars) with 400 VALIDATION_ERROR', async () => {
       const res = await request(app).post('/api/auth/register').send({
         name: 'Short Pwd',
         email: 'short@adypu.edu.in',
@@ -70,7 +70,7 @@ describe('Authentication and Authorization API', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe('VALIDATION_ERROR');
-      expect(res.body.details).toContain('Password is required and must be at least 6 characters.');
+      expect(res.body.details).toContain('Password is required and must be at least 8 characters.');
     });
 
     it('does not allow public registration to grant the ADMIN role', async () => {

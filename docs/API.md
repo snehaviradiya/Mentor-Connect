@@ -93,8 +93,8 @@ Registers a new student or mentor account with bcrypt password hashing.
   "role": "STUDENT"
 }
 ```
-*For `role: "MENTOR"`, optional profile fields (`title`, `category`, `bio`, `expertise`) may be supplied.*
-Public registration supports `STUDENT` and `MENTOR` only. `ADMIN` accounts must be provisioned through a trusted administrative process.
+For `role: "MENTOR"`, optional profile fields (`title`, `category`, `bio`, `expertise`) may be supplied. Registration always creates the corresponding student or mentor profile; mentors can complete or edit profile details later. New mentor profiles need configured availability before students can book them.
+Public registration supports `STUDENT` and `MENTOR` only. `ADMIN` accounts must be provisioned through a trusted administrative process. Passwords must contain at least 8 characters and are hashed with bcrypt before storage.
 
 - **Response `201 Created`:**
 ```json
@@ -113,7 +113,7 @@ Public registration supports `STUDENT` and `MENTOR` only. `ADMIN` accounts must 
 }
 ```
 - **Error Codes:**
-  - `400 VALIDATION_ERROR`: Missing or malformed email, password < 6 characters.
+  - `400 VALIDATION_ERROR`: Missing or malformed email, password shorter than 8 characters, or unsupported role.
   - `409 DUPLICATE_EMAIL`: Email is already registered.
 
 ### 3.2 Login User
@@ -176,6 +176,25 @@ Retrieves the authenticated user's profile and linked mentor/mentee record.
   - `401 UNAUTHORIZED`: Bearer token missing or malformed.
   - `401 TOKEN_INVALID`: Token expired or invalid signature.
 
+### 3.4 Update Current User Profile
+Updates the authenticated user's name and role-specific profile fields.
+
+- **URL:** `/api/auth/me`
+- **Method:** `PATCH`
+- **Auth:** Bearer Token required
+- **Request Body (student example):**
+```json
+{
+  "name": "Asha Student",
+  "university": "ADYPU",
+  "major": "Robotics",
+  "graduationYear": 2027
+}
+```
+Mentors may update `name`, `title`, `category`, `bio`, `expertise`, and `mentoringTopics`. Students may update `name`, `university`, `major`, and `graduationYear`.
+- **Response `200 OK`:** Returns the updated `data.user` with its linked role-specific profile.
+- **Errors:** `400 VALIDATION_ERROR`, `401 UNAUTHORIZED`, `401 TOKEN_INVALID`, `409 PROFILE_NOT_FOUND`.
+
 ---
 
 ## 4. Mentor APIs (`/api/mentors`)
@@ -231,7 +250,17 @@ Public mentor responses omit account email addresses and credentials.
 - **Error Codes:**
   - `404 MENTOR_NOT_FOUND`: Mentor ID not found.
 
-### 4.3 Get Mentor Availability & Booked Slots
+### 4.3 Update Mentor Profile
+Updates profile information. A mentor may update only their own profile; an admin may update any mentor profile.
+
+- **URL:** `/api/mentors/:id`
+- **Method:** `PUT`
+- **Auth:** Bearer Token required (`MENTOR` or `ADMIN`)
+- **Request Body:** Any supported subset of `name`, `title`, `category`, `bio`, `expertise`, `sampleAvailability`, `education`, `experience`, and `mentoringTopics`.
+- **Response `200 OK`:** Returns the updated public mentor profile.
+- **Errors:** `400 VALIDATION_ERROR`, `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 MENTOR_NOT_FOUND`.
+
+### 4.4 Get Mentor Availability & Booked Slots
 Retrieves configured availability slots for a mentor. When `date` is provided, validates format, evaluates specific-date and day-of-week recurring schedules, and cross-references active non-cancelled bookings to report slot occupancy accurately.
 
 - **URL:** `/api/mentors/:id/availability?date=YYYY-MM-DD`
@@ -255,9 +284,9 @@ Retrieves configured availability slots for a mentor. When `date` is provided, v
       },
       {
         "id": "...",
-        "label": "05:30 PM – 06:30 PM IST (Simulated Conflict Slot)",
-        "isBookable": false,
-        "isBooked": true
+        "label": "02:00 PM – 03:00 PM IST",
+        "isBookable": true,
+        "isBooked": false
       }
     ]
   }
@@ -267,11 +296,20 @@ Retrieves configured availability slots for a mentor. When `date` is provided, v
   - `400 VALIDATION_ERROR`: Malformed or invalid `date` parameter.
   - `404 MENTOR_NOT_FOUND`: Mentor ID not found.
 
-### 4.4 Update Mentor Availability
+### 4.5 Update Mentor Availability
 - **URL:** `/api/mentors/:id/availability`
 - **Method:** `PUT`
 - **Auth:** Bearer Token required (Mentor or Admin)
-- **Request Body:** `{ "slots": ["10:00 AM – 11:00 AM IST", "02:00 PM – 03:00 PM IST"] }`
+- **Request Body:** Slots may be strings (available on any weekday) or structured records with a weekday or date:
+```json
+{
+  "slots": [
+    { "slotLabel": "04:00 PM – 05:00 PM IST", "dayOfWeek": 4 },
+    { "slotLabel": "10:00 AM – 11:00 AM IST", "specificDate": "2026-11-20" }
+  ]
+}
+```
+`dayOfWeek` uses `0` for Sunday through `6` for Saturday. Each slot must have a unique label and weekday/date combination. Setting availability replaces the schedule, while slots tied to active future bookings are retained.
 - **Response `200 OK`:** Returns updated slots list.
 - **Error Codes:**
   - `403 FORBIDDEN`: Attempting to modify another mentor's schedule.
@@ -282,11 +320,11 @@ Retrieves configured availability slots for a mentor. When `date` is provided, v
 
 ### 5.1 Create Booking Request
 Submits a booking request. Validates session dates (strictly valid future calendar dates) and time slots against the mentor's configured availability schedule. Enforces database-level concurrency protection via partial unique index `idx_bookings_active_unique` on `(mentorId, sessionDate, timeSlot)` where `status != 'cancelled'`. Concurrent attempts for the same mentor and slot return a guaranteed HTTP `409 SLOT_UNAVAILABLE`.
-Guest requests may submit contact fields; authenticated students have their name, email, and mentee profile taken from the verified JWT identity instead. A guest-provided email is never used to establish account ownership.
+Only authenticated students may create bookings. The request's student contact fields are required by the input contract, but the server derives the booking owner and contact identity from the verified JWT and linked student profile. The client cannot create a booking or claim another account by supplying an email address.
 
 - **URL:** `/api/bookings`
 - **Method:** `POST`
-- **Auth:** Optional (Guests or authenticated students)
+- **Auth:** Bearer Token required (`STUDENT` only)
 - **Request Body:**
 ```json
 {

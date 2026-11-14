@@ -15,11 +15,16 @@ import SessionWorkspace from './components/SessionWorkspace.jsx';
 import AvailabilityExplorer from './components/AvailabilityExplorer.jsx';
 import MentorshipHome from './components/MentorshipHome.jsx';
 import RegistrationModal from './components/RegistrationModal.jsx';
+import LoginModal from './components/LoginModal.jsx';
 import BookingModal from './components/BookingModal.jsx';
+import MentorDashboard from './components/MentorDashboard.jsx';
 import { ToastProvider, useToast } from './context/ToastContext.jsx';
-import { fetchMentors } from './services/api.js';
+import { fetchCurrentUser, fetchMentors } from './services/api.js';
 
-export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTORS }) {
+export function AppContent({
+  initialLoading = null,
+  initialMentors = import.meta.env.MODE === 'test' ? MOCK_MENTORS : [],
+}) {
   const [activeTab, setActiveTab] = useState('discover');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -28,6 +33,16 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
   const [workspaceSession, setWorkspaceSession] = useState(null);
   const [selectedAvailability, setSelectedAvailability] = useState(null);
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      return JSON.parse(window.sessionStorage.getItem('mentor_connect_user') || 'null');
+    } catch {
+      return null;
+    }
+  });
+  const [directoryError, setDirectoryError] = useState('');
   const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
   const [mentors, setMentors] = useState(initialMentors);
   const listingsRef = useRef(null);
@@ -44,24 +59,25 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
     const isVitest = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test';
     return !isTestMode && !isVitest;
   });
+  const [shouldFetchOnMount] = useState(
+    () => isLoading || (typeof window !== 'undefined' && import.meta.env?.MODE !== 'test')
+  );
 
   // On mount in real browser environment or when initialLoading is true: fetch live data
   useEffect(() => {
     let isMounted = true;
-    const shouldFetch = isLoading || (typeof window !== 'undefined' && import.meta.env?.MODE !== 'test');
 
-    if (shouldFetch) {
-      setIsLoading(true);
+    if (shouldFetchOnMount) {
       fetchMentors()
         .then((res) => {
           if (!isMounted) return;
-          if (res?.data?.mentors && Array.isArray(res.data.mentors) && res.data.mentors.length > 0) {
+          if (res?.data?.mentors && Array.isArray(res.data.mentors)) {
             setMentors(res.data.mentors);
           }
+          setDirectoryError('');
         })
         .catch((err) => {
-          // Gracefully fallback to mockMentors on network error/offline
-          console.info('Using local mentor fixtures (offline/demo mode):', err.message);
+          if (isMounted) setDirectoryError(err.message || 'Unable to load mentors from the server.');
         })
         .finally(() => {
           if (isMounted) {
@@ -75,6 +91,41 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
     return () => {
       isMounted = false;
     };
+  }, [shouldFetchOnMount]);
+
+  useEffect(() => {
+    const token = window.sessionStorage.getItem('mentor_connect_token');
+    if (!token || import.meta.env?.MODE === 'test') return;
+    let active = true;
+    fetchCurrentUser(token)
+      .then((response) => {
+        if (!active) return;
+        const user = response?.data?.user;
+        if (!user) throw new Error('The account response was incomplete.');
+        window.sessionStorage.setItem('mentor_connect_user', JSON.stringify(user));
+        setCurrentUser(user);
+      })
+      .catch(() => {
+        if (!active) return;
+        window.sessionStorage.removeItem('mentor_connect_token');
+        window.sessionStorage.removeItem('mentor_connect_user');
+        setCurrentUser(null);
+      });
+    return () => { active = false; };
+  }, []);
+
+  const handleAuthenticated = useCallback((user) => {
+    setCurrentUser(user);
+    setIsLoginOpen(false);
+    setActiveTab('dashboard');
+    setDashboardRefreshKey((key) => key + 1);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    window.sessionStorage.removeItem('mentor_connect_token');
+    window.sessionStorage.removeItem('mentor_connect_user');
+    setCurrentUser(null);
+    setActiveTab('discover');
   }, []);
 
   // Update a mentor profile (e.g. from EditProfileModal)
@@ -152,12 +203,14 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
     setIsLoading(true);
     try {
       const res = await fetchMentors();
-      if (res?.data?.mentors && Array.isArray(res.data.mentors) && res.data.mentors.length > 0) {
+      if (res?.data?.mentors && Array.isArray(res.data.mentors)) {
         setMentors(res.data.mentors);
       }
+      setDirectoryError('');
       toast.info('Mentor directory refreshed with the latest data.', 'Refreshed');
-    } catch {
-      toast.info('Mentors loaded from demonstration fixtures.', 'Directory Refreshed');
+    } catch (error) {
+      setDirectoryError(error.message || 'Unable to load mentors from the server.');
+      toast.error(error.message || 'Unable to load mentors from the server.', 'Refresh Failed');
     } finally {
       setTimeout(() => {
         setIsLoading(false);
@@ -188,6 +241,10 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
       <Navbar
         activeTab={activeTab === 'workspace' ? 'dashboard' : activeTab}
         onTabChange={handleTabChange}
+        currentUser={currentUser}
+        onLogin={() => setIsLoginOpen(true)}
+        onRegister={() => setIsRegistrationOpen(true)}
+        onLogout={handleLogout}
       />
 
       <main className="main-content">
@@ -196,9 +253,12 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
             /* Detailed Mentor Profile View (Milestone 3B) */
             <MentorProfile
               mentor={selectedMentor}
+              currentUser={currentUser}
               onBack={() => setSelectedMentorId(null)}
               onUpdateMentor={handleUpdateMentor}
               onBookingSuccess={() => setDashboardRefreshKey((key) => key + 1)}
+              onOpenLogin={() => setIsLoginOpen(true)}
+              onOpenRegistration={() => setIsRegistrationOpen(true)}
             />
           ) : (
             /* Mentor Discovery Directory View */
@@ -291,6 +351,14 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
                 })}
               />
 
+              {directoryError && !isLoading && (
+                <div className="empty-state-card" role="alert">
+                  <h3 className="empty-title">Mentor directory unavailable</h3>
+                  <p className="empty-description">{directoryError}</p>
+                  <button type="button" className="reset-filters-btn" onClick={handleRefreshMentors}>Try again</button>
+                </div>
+              )}
+
               {/* Mentor Cards Grid, Skeleton Cards while loading, or Empty State */}
               {isLoading ? (
                 /* Skeleton cards while mentor data loads instead of a blank screen */
@@ -305,7 +373,7 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
                     <MentorCardSkeleton key={`skeleton-${idx}`} />
                   ))}
                 </div>
-              ) : visibleMentors.length > 0 ? (
+              ) : !directoryError && visibleMentors.length > 0 ? (
                 <div
                   className="mentors-grid"
                   role="region"
@@ -319,30 +387,22 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
                     />
                   ))}
                 </div>
-              ) : (
+              ) : !directoryError ? (
                 <EmptyState
                   searchQuery={searchQuery}
                   selectedCategory={selectedCategory}
                   onReset={handleResetFilters}
                 />
-              )}
+              ) : null}
 
-              {/* Demonstration Notice */}
-              <aside className="demo-disclaimer" aria-label="Demo Disclaimer">
-                <span className="disclaimer-icon" aria-hidden="true">i</span>
-                <p>
-                  <strong>Demonstration Fixtures:</strong> Mentors and availability displayed
-                  above are sample records for Milestone 3A &amp; 3B frontend testing. Live mentor
-                  onboarding and database-backed scheduling will be connected in future milestones.
-                </p>
-              </aside>
             </section>
           )
         ) : activeTab === 'dashboard' ? (
-          <StudentDashboard
+          currentUser?.role === 'MENTOR' ? <MentorDashboard onOpenLogin={() => setIsLoginOpen(true)} /> : <StudentDashboard
             mentors={mentors}
             refreshKey={dashboardRefreshKey}
             onOpenSignup={() => setIsRegistrationOpen(true)}
+            onOpenLogin={() => setIsLoginOpen(true)}
             onOpenWorkspace={(session) => {
               setWorkspaceSession(session);
               setActiveTab('workspace');
@@ -386,10 +446,10 @@ export function AppContent({ initialLoading = null, initialMentors = MOCK_MENTOR
         />
       )}
       {isRegistrationOpen && (
-        <RegistrationModal onClose={() => {
-          setIsRegistrationOpen(false);
-          setDashboardRefreshKey((key) => key + 1);
-        }} />
+        <RegistrationModal onClose={() => setIsRegistrationOpen(false)} onAuthenticated={handleAuthenticated} />
+      )}
+      {isLoginOpen && (
+        <LoginModal onClose={() => setIsLoginOpen(false)} onAuthenticated={handleAuthenticated} />
       )}
 
       {/* Footer */}

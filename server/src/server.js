@@ -2,8 +2,10 @@ import http from 'http';
 import app from './app.js';
 import prisma from './prisma.js';
 import { initChatSocket } from './socket/chatSocket.js';
+import { getJwtSecret } from './middleware/auth.js';
 
 const PORT = process.env.PORT || 5000;
+getJwtSecret();
 
 const httpServer = http.createServer(app);
 const io = initChatSocket(httpServer);

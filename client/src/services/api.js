@@ -13,6 +13,12 @@ export class ApiError extends Error {
   }
 }
 
+export function getSavedToken() {
+  return typeof window === 'undefined'
+    ? null
+    : window.sessionStorage.getItem('mentor_connect_token');
+}
+
 async function handleResponse(response) {
   let data = null;
   const contentType = response.headers.get('content-type');
@@ -57,7 +63,7 @@ async function handleResponse(response) {
  */
 export async function createBooking(payload) {
   try {
-    const token = window.sessionStorage.getItem('mentor_connect_token');
+    const token = getSavedToken();
     const headers = { 'Content-Type': 'application/json' };
     if (token) {
       const authResponse = await fetch('/api/auth/me', {
@@ -98,6 +104,19 @@ export async function fetchStudentDashboard(token) {
   }
 }
 
+/** Retrieves the authenticated account and its role-specific profile. */
+export async function fetchCurrentUser(token) {
+  try {
+    const response = await fetch('/api/auth/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return await handleResponse(response);
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(error.message || 'Unable to retrieve your account.', 0, 'NETWORK_ERROR');
+  }
+}
+
 /** Cancels a booking belonging to the authenticated student. */
 export async function cancelBooking(bookingId, token) {
   try {
@@ -125,7 +144,7 @@ export async function registerUser(payload) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ ...payload, role: 'STUDENT' }),
+      body: JSON.stringify({ ...payload, role: payload.role || 'STUDENT' }),
     });
 
     return await handleResponse(response);
@@ -138,6 +157,21 @@ export async function registerUser(payload) {
       0,
       'NETWORK_ERROR'
     );
+  }
+}
+
+/** Authenticates a student or mentor account. */
+export async function loginUser(payload) {
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return await handleResponse(response);
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(error.message || 'Unable to sign in.', 0, 'NETWORK_ERROR');
   }
 }
 
@@ -162,6 +196,18 @@ export async function fetchMentors() {
   }
 }
 
+/** Fetches the date-specific live availability for a mentor. */
+export async function fetchMentorAvailability(mentorId, date) {
+  try {
+    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    const response = await fetch(`/api/mentors/${encodeURIComponent(mentorId)}/availability${query}`);
+    return await handleResponse(response);
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(error.message || 'Unable to load mentor availability.', 0, 'NETWORK_ERROR');
+  }
+}
+
 /**
  * Updates an existing mentor profile.
  *
@@ -171,11 +217,12 @@ export async function fetchMentors() {
  */
 export async function updateMentorProfile(mentorId, payload) {
   try {
+    const token = getSavedToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
     const response = await fetch(`/api/mentors/${mentorId}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 
@@ -189,6 +236,55 @@ export async function updateMentorProfile(mentorId, payload) {
       0,
       'NETWORK_ERROR'
     );
+  }
+}
+
+/** Fetches the authenticated mentor's dashboard and bookings. */
+export async function fetchMentorDashboard(token) {
+  try {
+    const response = await fetch('/api/dashboard/mentor', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return await handleResponse(response);
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(error.message || 'Unable to load your mentor dashboard.', 0, 'NETWORK_ERROR');
+  }
+}
+
+/** Replaces an authenticated mentor's availability schedule. */
+export async function updateMentorAvailability(mentorId, slots, token) {
+  try {
+    const response = await fetch(`/api/mentors/${encodeURIComponent(mentorId)}/availability`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ slots }),
+    });
+    return await handleResponse(response);
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(error.message || 'Unable to update your availability.', 0, 'NETWORK_ERROR');
+  }
+}
+
+/** Reschedules a booking as its assigned student, mentor, or an admin. */
+export async function rescheduleBooking(bookingId, payload, token) {
+  try {
+    const response = await fetch(`/api/bookings/${encodeURIComponent(bookingId)}/reschedule`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    return await handleResponse(response);
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(error.message || 'Unable to reschedule this booking.', 0, 'NETWORK_ERROR');
   }
 }
 /**

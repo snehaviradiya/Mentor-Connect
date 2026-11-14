@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export default function Navbar({ activeTab, onTabChange }) {
+export default function Navbar({ activeTab, onTabChange, currentUser, onLogin, onRegister, onLogout }) {
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
@@ -76,9 +76,19 @@ export default function Navbar({ activeTab, onTabChange }) {
 
         {/* Status indicator */}
         <div className="header-status">
-          <span className="status-badge" aria-label="Milestone 3C – Booking demo active">
-            Milestone 3C · Booking
-          </span>
+          {currentUser ? (
+            <div className="header-account">
+              <span className="status-badge" title={currentUser.email}>
+                {currentUser.name} · {currentUser.role === 'MENTOR' ? 'Mentor' : 'Student'}
+              </span>
+              <button type="button" className="nav-link" onClick={onLogout}>Sign out</button>
+            </div>
+          ) : (
+            <div className="header-account">
+              <button type="button" className="nav-link" onClick={onLogin}>Sign in</button>
+              <button type="button" className="nav-link" onClick={onRegister}>Create account</button>
+            </div>
+          )}
         </div>
       </div>
     </header>

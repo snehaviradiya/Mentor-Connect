@@ -1,6 +1,6 @@
 import prisma from '../prisma.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { isValidDateString } from '../middleware/validator.js';
+import { getTodayDateString, isValidDateString } from '../middleware/validator.js';
 
 function parseJsonSafe(val, fallback = []) {
   if (!val) return fallback;
@@ -250,12 +250,39 @@ export async function getMentorAvailability(req, res, next) {
 export async function updateMentorAvailability(req, res, next) {
   try {
     const { id } = req.params;
-    const { slots } = req.body; // Array of slot strings: ["10:00 AM – 11:00 AM IST", ...]
+    const { slots } = req.body;
 
     if (!Array.isArray(slots) || slots.length === 0) {
       return next(
-        new AppError('slots must be a non-empty array of slot strings.', 400, 'VALIDATION_ERROR')
+        new AppError('slots must be a non-empty array.', 400, 'VALIDATION_ERROR')
       );
+    }
+
+    const normalizedSlots = [];
+    for (const slot of slots) {
+      const value = typeof slot === 'string' ? { slotLabel: slot } : slot;
+      if (!value || typeof value !== 'object' ||
+        typeof value.slotLabel !== 'string' ||
+        value.slotLabel.trim().length < 3 || value.slotLabel.trim().length > 100 ||
+        (value.dayOfWeek !== undefined && (!Number.isInteger(value.dayOfWeek) || value.dayOfWeek < 0 || value.dayOfWeek > 6)) ||
+        (value.specificDate !== undefined && !isValidDateString(value.specificDate)) ||
+        (value.dayOfWeek !== undefined && value.specificDate !== undefined) ||
+        (value.isBookable !== undefined && typeof value.isBookable !== 'boolean')) {
+        return next(new AppError('Each slot must include a valid label and either a weekday or specific date.', 400, 'VALIDATION_ERROR'));
+      }
+      normalizedSlots.push({
+        slotLabel: value.slotLabel.trim(),
+        dayOfWeek: value.dayOfWeek ?? null,
+        specificDate: value.specificDate ?? null,
+        isBookable: value.isBookable ?? true,
+      });
+    }
+
+    const duplicateKeys = normalizedSlots.map((slot) =>
+      `${slot.slotLabel}|${slot.dayOfWeek ?? ''}|${slot.specificDate ?? ''}`
+    );
+    if (new Set(duplicateKeys).size !== duplicateKeys.length) {
+      return next(new AppError('Availability slots must be unique for each day or date.', 400, 'VALIDATION_ERROR'));
     }
 
     const mentor = await prisma.mentorProfile.findUnique({
@@ -268,26 +295,33 @@ export async function updateMentorAvailability(req, res, next) {
       );
     }
 
-    // Authorization check: if authenticated user is a mentor, must be their own profile (or admin)
-    if (req.user && req.user.role === 'MENTOR' && mentor.userId !== req.user.id) {
+    if (req.user.role === 'MENTOR' && mentor.userId !== req.user.id) {
       return next(new AppError('You can only update your own availability schedule.', 403, 'FORBIDDEN'));
     }
 
-    // Replace slots in a transaction
+    // Keep availability rows for active bookings so later cancellation can reopen the same slot.
     await prisma.$transaction(async (tx) => {
-      await tx.mentorAvailability.deleteMany({
-        where: { mentorId: id },
+      const activeBookings = await tx.booking.findMany({
+        where: {
+          mentorId: id,
+          status: { not: 'cancelled' },
+          sessionDate: { gte: getTodayDateString() },
+        },
+        select: { timeSlot: true },
       });
+      const activeLabels = [...new Set(activeBookings.map((booking) => booking.timeSlot))];
 
-      for (const slotLabel of slots) {
-        await tx.mentorAvailability.create({
-          data: {
-            mentorId: id,
-            slotLabel,
-            isBookable: true,
-          },
-        });
-      }
+      await tx.mentorAvailability.deleteMany({
+        where: {
+          mentorId: id,
+          ...(activeLabels.length ? { slotLabel: { notIn: activeLabels } } : {}),
+        },
+      });
+      await tx.mentorAvailability.createMany({
+        data: normalizedSlots
+          .filter((slot) => !activeLabels.includes(slot.slotLabel))
+          .map((slot) => ({ ...slot, mentorId: id })),
+      });
     });
 
     const updatedSlots = await prisma.mentorAvailability.findMany({
@@ -336,7 +370,7 @@ export async function updateMentorProfile(req, res, next) {
       );
     }
 
-    if (req.user && req.user.role === 'MENTOR' && mentor.userId !== req.user.id) {
+    if (req.user.role === 'MENTOR' && mentor.userId !== req.user.id) {
       return next(
         new AppError('You can only update your own profile.', 403, 'FORBIDDEN')
       );
@@ -357,19 +391,29 @@ export async function updateMentorProfile(req, res, next) {
         typeof mentoringTopics === 'string' ? mentoringTopics : JSON.stringify(mentoringTopics);
     }
 
-    const updated = await prisma.mentorProfile.update({
-      where: { id },
-      data: dataToUpdate,
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
+    const updated = await prisma.$transaction(async (tx) => {
+      const profile = await tx.mentorProfile.update({
+        where: { id },
+        data: dataToUpdate,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
           },
+          availabilities: true,
         },
-        availabilities: true,
-      },
+      });
+      if (req.body.name !== undefined) {
+        await tx.user.update({
+          where: { id: mentor.userId },
+          data: { name: String(req.body.name).trim() },
+        });
+        profile.user.name = String(req.body.name).trim();
+      }
+      return profile;
     });
 
     const formatted = formatMentorRecord(updated);

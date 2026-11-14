@@ -3,7 +3,7 @@
 **Institution:** ADYPU (Ajeenkya DY Patil University)  
 **Repository (Submission):** [https://github.com/snehaviradiya/Mentor-Connect](https://github.com/snehaviradiya/Mentor-Connect)  
 **Upstream Team Repository:** [https://github.com/Abhay750/Mentor-Connect.git](https://github.com/Abhay750/Mentor-Connect.git)  
-**Status:** Milestone 3 — Backend Foundation, APIs & Verified Persistence  
+**Status:** Full-stack academic project; core account, discovery, booking, dashboard, and session workflows are implemented and tested.
 
 ---
 
@@ -20,16 +20,14 @@ Undergraduate students frequently face challenges finding timely, personalized a
 
 ---
 
-## 2. Proposed Features
+## 2. Features
 
-*Note: All features are currently in the planning stage. No application code has been implemented yet.*
-
-- **Mentor Discovery:** Search, filter, and discover mentors by domain expertise, industry, skills, and availability.
-- **Mentor Profiles:** Detailed mentor profiles highlighting bio, professional background, expertise areas, and session offerings.
-- **Availability Management:** Mentor-defined time slots and calendar configuration for flexible scheduling.
-- **Appointment Booking:** Intuitive workflow for students to reserve slots, define meeting goals, and receive booking confirmations.
-- **Student Dashboard:** Personalized student console to view upcoming sessions, booking history, and mentorship milestones.
-- **Chat & Video Meetings:** Integrated communication channels for pre-session inquiries, active video mentoring calls, and follow-up discussions.
+- **Accounts:** Student and mentor registration, login, JWT authentication, account/profile updates, and role-scoped routes.
+- **Mentor discovery:** Live, searchable and filterable directory, public profiles, and structured weekly availability display.
+- **Scheduling:** Mentor-managed weekly/date-specific availability, booking confirmation, cancellation and rescheduling, with server- and database-level protection against double booking.
+- **Dashboards:** Student and mentor booking/session views, including upcoming, past, and cancelled sessions. Student learning goals are currently client-side state and are not synchronized to the server.
+- **Session workspace:** Session lifecycle, chat, shared resources, reviews, notifications, and embedded Jitsi meeting integration.
+- **Demo fixtures:** The seed command creates illustrative local accounts, mentors, availability, and a sample booking. The production client does not silently substitute fixture data when the live directory is unavailable.
 
 ---
 
@@ -37,14 +35,12 @@ Undergraduate students frequently face challenges finding timely, personalized a
 
 | Feature | Scope / Description | Proposed Owner(s) | Status |
 | :--- | :--- | :--- | :--- |
-| **Mentor Discovery** | Search and filter mentors by department, skills, and topics | Abhay Kumar / Sneha Viradiya | **Implemented (Frontend + Backend API)** |
-| **Mentor Profiles** | Public profile pages, credentials, and mentorship focus areas | Jiya Srivastava / Abhay Kumar / Sneha Viradiya | **Implemented (Frontend + Backend API)** |
-| **Availability Management** | Time slot calendar, recurring availability, and booking rules | Sneha Viradiya | **Implemented (Backend API & Persistence)** |
-| **Appointment Booking** | Booking flow, slot locking, confirmation, and scheduling logic | Abhay Kumar / Sneha Viradiya | **Implemented (Frontend UI + Concurrency-Safe API)** |
-| **Student Dashboard** | Central student portal for bookings, past sessions, and activity | Jiya Srivastava | **Planned** |
-| **Chat & Messaging** | Text chat for session preparation and follow-ups | Team | **Planned** |
-| **Video Meetings** | Virtual meeting integration for one-on-one sessions | Jiya Srivastava / Team | **Planned** |
-| **Authentication & Profiles** | User registration, role-based access (Student / Mentor), JWT security | Sneha Viradiya | **Implemented (Backend Auth & JWT)** |
+| **Mentor Discovery & Profiles** | Live mentor search/filtering, public profiles, profile editing | Project team | **Implemented** |
+| **Availability & Booking** | Weekly/date-specific slots, booking, cancellation, rescheduling, conflict prevention | Project team | **Implemented** |
+| **Authentication & Accounts** | Student/mentor signup and login, JWT, profile retrieval/updates, authorization | Project team | **Implemented** |
+| **Dashboards** | Student/mentor session and booking views; local-only learning goals | Project team | **Implemented with documented persistence limitation** |
+| **Sessions, Chat & Video** | Session lifecycle, chat, resource sharing, reviews, Jitsi integration | Project team | **Implemented; external video service configuration may be required** |
+| **Production deployment** | Hosted environment, deployment automation, production database | Project team | **Not included in this repository setup** |
 
 ---
 
@@ -53,7 +49,7 @@ Undergraduate students frequently face challenges finding timely, personalized a
 - **Frontend:** [React](https://react.dev/) with [Vite](https://vitejs.dev/)
 - **Backend:** [Node.js](https://nodejs.org/) & [Express.js](https://expressjs.com/)
 - **Styling & UI:** Modern Vanilla CSS / Component Styling
-- **Database & Data Layer:** Relational Database via [Prisma ORM](https://www.prisma.io/) (SQLite local, PostgreSQL production)
+- **Database & Data Layer:** [Prisma ORM](https://www.prisma.io/) with SQLite in the checked-in schema. A production database migration/deployment configuration is not included.
 - **Version Control:** Git & GitHub
 
 ---
@@ -80,18 +76,9 @@ Undergraduate students frequently face challenges finding timely, personalized a
   - Database schema definition (Prisma ORM relational models)
   - Vite + React frontend scaffolding and base design system
   - Environment configuration (`.env.example`) and API contracts (`docs/API.md`)
-- [x] **Milestone 3 — Core Feature Implementation (Sprint 1 Backend)**
-  - Mentor profiles, availability management, and concurrency-safe booking engine
-  - User authentication (JWT, bcrypt, role-based authorization)
-  - RESTful API endpoints and robust request validation
-  - Comprehensive automated test suites (38 backend tests, 27 frontend tests)
-- [ ] **Milestone 4 — Communication & Meeting Experience**
-  - Chat implementation and video meeting integration
-  - Notifications and session reminders
-- [ ] **Milestone 5 — Testing, Accessibility & Deployment**
-  - End-to-end user flow testing and accessibility audit
-  - Production build optimization and cloud deployment
-  - Final capstone submission and demonstration
+- [x] **Core full-stack workflows** — accounts, mentor discovery and profiles, availability, booking, dashboards, session lifecycle, chat/resources, reviews, and video meeting integration.
+- [x] **Verification** — isolated server integration tests, client component tests, and production client build.
+- [ ] **Deployment and remaining product polish** — production hosting/database setup, end-to-end testing against a deployed stack, accessibility audit, persistent learning goals, and session reminders.
 
 ---
 
@@ -101,53 +88,45 @@ Undergraduate students frequently face challenges finding timely, personalized a
 - **Node.js**: v20+ recommended (verified on v26.7.0)
 - **npm**: v10+ recommended (verified on v11.19.0)
 
-### Frontend Setup (Verified)
-1. Navigate to the client directory:
+### Backend Setup
+1. Configure and install the server:
    ```bash
-   cd client
-   ```
-2. Install dependencies:
-   ```bash
+   cd server
+   cp .env.example .env
    npm install
    ```
-3. Start the Vite development server:
+2. Set `JWT_SECRET` in `.env` to a private random value of at least 32 characters. For example:
+   ```bash
+   node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
+   ```
+3. Apply the checked-in Prisma migrations and seed local demo data:
+   ```bash
+   npx prisma migrate deploy
+   npm run db:seed
+   ```
+4. Start the API:
    ```bash
    npm run dev
    ```
-   Open [http://localhost:5173](http://localhost:5173) in your browser to access the Mentor Connect application.
+   The API listens on `http://localhost:5000`; check `http://localhost:5000/api/health`.
 
-4. Build for production:
+### Frontend Setup
+1. In a separate terminal, install dependencies and start Vite:
    ```bash
-   npm run build
-   ```
-
-### Backend Setup (Verified)
-1. Navigate to the server directory:
-   ```bash
-   cd server
-   ```
-2. Install dependencies:
-   ```bash
+   cd client
    npm install
+   npm run dev
    ```
-3. (Optional) Configure environment variables:
-   ```bash
-   cp .env.example .env
-   ```
-   *Default port is `5000` if not configured.*
-4. Start the server:
-   - **Development mode (with auto-reload):**
-     ```bash
-     npm run dev
-     ```
-   - **Production mode:**
-     ```bash
-     npm start
-     ```
-5. Verify health check endpoint:
-   ```bash
-   curl http://localhost:5000/api/health
-   ```
+   Open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` requests to the local server.
+
+### Tests and production build
+```bash
+cd server && npm test
+cd ../client && npm test && npm run build
+```
+The server test runner creates a temporary SQLite database, applies migrations and seed data, runs tests, and removes only that temporary database.
+
+See [`server/README.md`](./server/README.md), [`client/README.md`](./client/README.md), and [`docs/API.md`](./docs/API.md) for additional details.
 
 ---
 

@@ -9,29 +9,7 @@ const DAYS = [
 ];
 
 const HOURS = Array.from({ length: 11 }, (_, index) => index + 9);
-
-function toMinutes(hour, minute, meridiem) {
-  const normalizedHour = hour % 12 + (meridiem === 'PM' ? 12 : 0);
-  return normalizedHour * 60 + minute;
-}
-
-function getAvailability(mentor) {
-  const schedule = mentor.sampleAvailability || '';
-  const daysText = schedule.split(',')[0] || '';
-  const days = new Set(
-    daysText
-      .split(/\s*(?:&|and)\s*/i)
-      .map((day) => day.trim().replace(/s$/i, '').toLowerCase())
-  );
-  const times = [...schedule.matchAll(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/gi)];
-  if (times.length < 2) return null;
-
-  const start = toMinutes(Number(times[0][1]), Number(times[0][2] || 0), times[0][3].toUpperCase());
-  const end = toMinutes(Number(times[1][1]), Number(times[1][2] || 0), times[1][3].toUpperCase());
-  if (end <= start) return null;
-
-  return { days, start, end };
-}
+const DAY_INDEXES = [1, 2, 3, 4, 5, 6, 0];
 
 function formatHour(hour) {
   const displayHour = hour % 12 || 12;
@@ -39,10 +17,19 @@ function formatHour(hour) {
 }
 
 function isAvailable(mentor, day, hour) {
-  const availability = getAvailability(mentor);
-  if (!availability || !availability.days.has(day.toLowerCase())) return false;
+  const dayIndex = DAY_INDEXES[DAYS.indexOf(day)];
   const slotStart = hour * 60;
-  return slotStart < availability.end && slotStart + 60 > availability.start;
+  return (mentor.availabilities || []).some((slot) => {
+    if (!slot.isBookable || slot.specificDate) return false;
+    if (slot.dayOfWeek !== null && slot.dayOfWeek !== undefined && slot.dayOfWeek !== dayIndex) return false;
+    const times = slot.slotLabel.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)\s*[–-]\s*(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
+    if (!times) return false;
+    const toMinutes = (hourValue, minuteValue, meridiem) =>
+      (Number(hourValue) % 12 + (meridiem.toUpperCase() === 'PM' ? 12 : 0)) * 60 + Number(minuteValue || 0);
+    const start = toMinutes(times[1], times[2], times[3]);
+    const end = toMinutes(times[4], times[5], times[6]);
+    return slotStart < end && slotStart + 60 > start;
+  });
 }
 
 export default function AvailabilityExplorer({
@@ -58,9 +45,9 @@ export default function AvailabilityExplorer({
         <div>
           <span className="availability-explorer-eyebrow">PLAN YOUR NEXT SESSION</span>
           <h2 id="availability-heading">Explore mentor availability</h2>
-          <p>Pick a time to see mentors available that day, before opening their profiles.</p>
+          <p>Pick a time to see mentors with matching bookable schedule slots.</p>
         </div>
-        <span className="availability-demo-label">Illustrative schedule · IST</span>
+        <span className="availability-demo-label">Live weekly availability · IST</span>
       </div>
 
       <div className="availability-grid-scroll">
@@ -119,7 +106,7 @@ export default function AvailabilityExplorer({
           <span className="availability-legend-swatch availability-cell-level-3" aria-hidden="true" />
           <span>More mentors</span>
         </div>
-        <p>Counts show mentors with an illustrative demo slot during that hour.</p>
+        <p>Counts use each mentor&apos;s configured bookable availability.</p>
       </div>
 
       {selectedSlot && (

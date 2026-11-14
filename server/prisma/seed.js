@@ -135,33 +135,24 @@ export async function seedDatabase() {
     WHERE status != 'cancelled';
   `);
 
-  // Clean existing records in reverse relational order
-  await prisma.sessionReview.deleteMany({});
-  await prisma.sessionResource.deleteMany({});
-  await prisma.chatMessage.deleteMany({});
-  await prisma.session.deleteMany({});
-  await prisma.notification.deleteMany({});
-  await prisma.booking.deleteMany({});
-  await prisma.mentorAvailability.deleteMany({});
-  await prisma.mentorProfile.deleteMany({});
-  await prisma.menteeProfile.deleteMany({});
-  await prisma.user.deleteMany({});
-
   const defaultPasswordHash = await bcrypt.hash('Password123!', 10);
 
   // 1. Create Admin User
-  await prisma.user.create({
-    data: {
+  await prisma.user.upsert({
+    where: { email: 'admin@adypu.edu.in' },
+    create: {
       email: 'admin@adypu.edu.in',
       name: 'System Admin',
       password: defaultPasswordHash,
       role: 'ADMIN',
     },
+    update: { name: 'System Admin', role: 'ADMIN' },
   });
 
   // 2. Create Demo Student User
-  const studentUser = await prisma.user.create({
-    data: {
+  const studentUser = await prisma.user.upsert({
+    where: { email: 'abhay@adypu.edu.in' },
+    create: {
       email: 'abhay@adypu.edu.in',
       name: 'Abhay Kumar',
       password: defaultPasswordHash,
@@ -174,6 +165,24 @@ export async function seedDatabase() {
         },
       },
     },
+    update: {
+      name: 'Abhay Kumar',
+      role: 'STUDENT',
+      menteeProfile: {
+        upsert: {
+          create: {
+            university: 'ADYPU',
+            major: 'Computer Engineering',
+            graduationYear: 2027,
+          },
+          update: {
+            university: 'ADYPU',
+            major: 'Computer Engineering',
+            graduationYear: 2027,
+          },
+        },
+      },
+    },
     include: {
       menteeProfile: true,
     },
@@ -181,46 +190,57 @@ export async function seedDatabase() {
 
   // 3. Create Mentors with Profiles & Availability
   for (const mentorData of SEED_MENTORS) {
-    const user = await prisma.user.create({
-      data: {
+    const user = await prisma.user.upsert({
+      where: { email: mentorData.email },
+      create: {
         email: mentorData.email,
         name: mentorData.name,
         password: defaultPasswordHash,
         role: 'MENTOR',
       },
+      update: { name: mentorData.name, role: 'MENTOR' },
     });
 
-    const mentorProfile = await prisma.mentorProfile.create({
-      data: {
+    const profileData = {
+      userId: user.id,
+      title: mentorData.title,
+      category: mentorData.category,
+      expertise: JSON.stringify(mentorData.expertise),
+      bio: mentorData.bio,
+      sampleAvailability: mentorData.sampleAvailability,
+      avatarInitials: mentorData.avatarInitials,
+      education: mentorData.education,
+      experience: mentorData.experience,
+      mentoringTopics: JSON.stringify(mentorData.mentoringTopics),
+    };
+    const mentorProfile = await prisma.mentorProfile.upsert({
+      where: { id: mentorData.id },
+      create: {
         id: mentorData.id,
-        userId: user.id,
-        title: mentorData.title,
-        category: mentorData.category,
-        expertise: JSON.stringify(mentorData.expertise),
-        bio: mentorData.bio,
-        sampleAvailability: mentorData.sampleAvailability,
-        avatarInitials: mentorData.avatarInitials,
-        education: mentorData.education,
-        experience: mentorData.experience,
-        mentoringTopics: JSON.stringify(mentorData.mentoringTopics),
+        ...profileData,
       },
+      update: profileData,
     });
 
     // Create availability slots
-    for (const slot of DEMO_TIME_SLOTS) {
-      await prisma.mentorAvailability.create({
-        data: {
+    const existingSlots = await prisma.mentorAvailability.count({
+      where: { mentorId: mentorProfile.id },
+    });
+    if (existingSlots === 0) {
+      await prisma.mentorAvailability.createMany({
+        data: DEMO_TIME_SLOTS.map((slot) => ({
           mentorId: mentorProfile.id,
           slotLabel: slot,
           isBookable: true,
-        },
+        })),
       });
     }
   }
 
   // 4. Create an illustrative existing booking for mentor-1 on slot-4 to model conflict behavior
-  const existingBooking = await prisma.booking.create({
-    data: {
+  const existingBooking = await prisma.booking.upsert({
+    where: { id: 'bk_seed_demo_01' },
+    create: {
       id: 'bk_seed_demo_01',
       mentorId: 'mentor-1',
       menteeId: studentUser.menteeProfile.id,
@@ -232,6 +252,7 @@ export async function seedDatabase() {
       notes: 'Initial milestone 3 conflict simulation record',
       status: 'confirmed',
     },
+    update: {},
   });
 
   console.log(`Database seeded successfully!`);

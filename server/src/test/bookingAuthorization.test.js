@@ -7,7 +7,6 @@ import { generateToken } from '../middleware/auth.js';
 describe('Booking ownership and role authorization', () => {
   const suffix = Date.now().toString();
   const identities = {};
-  let guestBookingId = null;
   const profileIds = {
     mentorA: `mentor-security-a-${suffix}`,
     mentorB: `mentor-security-b-${suffix}`,
@@ -85,7 +84,7 @@ describe('Booking ownership and role authorization', () => {
   });
 
   afterAll(async () => {
-    const cleanupBookingIds = [...Object.values(bookingIds), guestBookingId].filter(Boolean);
+    const cleanupBookingIds = Object.values(bookingIds);
     await prisma.booking.deleteMany({ where: { id: { in: cleanupBookingIds } } });
     await prisma.user.deleteMany({
       where: { email: { in: Object.values(identities).map(({ user }) => user.email) } },
@@ -115,7 +114,7 @@ describe('Booking ownership and role authorization', () => {
     expect(response.body.data.bookings.map(({ bookingId }) => bookingId)).toEqual([bookingIds.studentA]);
   });
 
-  it('does not link a guest booking to a student from a client-supplied email', async () => {
+  it('requires an authenticated student to create a booking', async () => {
     const created = await request(app).post('/api/bookings').send({
       mentorId: profileIds.mentorA,
       studentName: identities.studentA.user.name,
@@ -124,19 +123,11 @@ describe('Booking ownership and role authorization', () => {
       timeSlot: '01:00 PM',
       sessionTopic: 'Guest booking ownership check',
     });
-    guestBookingId = created.body.data.bookingId;
-
-    const studentList = await request(app)
-      .get(`/api/bookings?studentEmail=${identities.studentA.user.email}`)
-      .set('Authorization', `Bearer ${identities.studentA.token}`);
-    const studentLookup = await request(app)
-      .get(`/api/bookings/${guestBookingId}`)
-      .set('Authorization', `Bearer ${identities.studentA.token}`);
-
-    expect(created.status).toBe(201);
-    expect(created.body.data.studentEmail).toBeUndefined();
-    expect(studentList.body.data.bookings.map(({ bookingId }) => bookingId)).toEqual([bookingIds.studentA]);
-    expect(studentLookup.status).toBe(404);
+    expect(created.status).toBe(401);
+    expect(created.body.code).toBe('UNAUTHORIZED');
+    expect(await prisma.booking.findFirst({
+      where: { studentEmail: identities.studentA.user.email, sessionTopic: 'Guest booking ownership check' },
+    })).toBeNull();
   });
 
   it('scopes mentors to their own assigned bookings despite a supplied mentorId', async () => {
