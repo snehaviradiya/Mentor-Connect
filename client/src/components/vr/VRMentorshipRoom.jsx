@@ -24,6 +24,7 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
   const [activePreset, setActivePreset] = useState('DEFAULT');
   const [isVRSupported, setIsVRSupported] = useState(false);
   const [isVRSessionActive, setIsVRSessionActive] = useState(false);
+  const [webglError, setWebglError] = useState(false);
 
   // References to active 3D subsystems for interaction & cleanup
   const systemsRef = useRef({
@@ -66,16 +67,20 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
     if (wb) {
       const idx = wb.prevSlide();
       setCurrentSlide(idx);
+    } else {
+      setCurrentSlide((prev) => (prev - 1 + mentorSlides.length) % mentorSlides.length);
     }
-  }, []);
+  }, [mentorSlides.length]);
 
   const handleNextSlide = useCallback(() => {
     const wb = systemsRef.current.whiteboard;
     if (wb) {
       const idx = wb.nextSlide();
       setCurrentSlide(idx);
+    } else {
+      setCurrentSlide((prev) => (prev + 1) % mentorSlides.length);
     }
-  }, []);
+  }, [mentorSlides.length]);
 
   const handleSelectPreset = useCallback((presetKey) => {
     const controls = systemsRef.current.controls;
@@ -167,16 +172,23 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
     const height = container.clientHeight || window.innerHeight;
 
     // 1. Renderer
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: true,
-      powerPreference: 'high-performance',
-    });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.xr.enabled = true; // Enables WebXR pipeline
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: true,
+        powerPreference: 'high-performance',
+      });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.xr.enabled = true; // Enables WebXR pipeline
+    } catch (err) {
+      console.warn('[VRMentorshipRoom] WebGL hardware acceleration unavailable:', err);
+      setTimeout(() => setWebglError(true), 0);
+      return undefined;
+    }
 
     // 2. Scene & Camera
     const scene = new THREE.Scene();
@@ -287,6 +299,8 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
     };
   }, [mentor, mentorSlides, onExit]);
 
+  const activeSlide = mentorSlides[currentSlide] || mentorSlides[0];
+
   return (
     <div
       className="vr-room-wrapper"
@@ -301,6 +315,34 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
         tabIndex={0}
         aria-label="Interactive 3D mentorship canvas. Use WASD or arrows to navigate, left click and drag to look around."
       />
+
+      {webglError && (
+        <div className="vr-fallback-display" role="region" aria-label="3D Room Presentation Fallback">
+          <div className="vr-fallback-banner">
+            <span className="vr-fallback-icon" aria-hidden="true">ℹ️</span>
+            <span>WebGL hardware acceleration unavailable in this browser environment. Showing accessible interactive presentation mode.</span>
+          </div>
+          <div className="vr-fallback-stage">
+            <div className="vr-fallback-slide-card">
+              <div className="vr-fallback-slide-badge">{activeSlide.badge || 'MENTORSHIP'}</div>
+              <h2 className="vr-fallback-slide-title">{activeSlide.title}</h2>
+              {activeSlide.subtitle && <p className="vr-fallback-slide-subtitle">{activeSlide.subtitle}</p>}
+              <ul className="vr-fallback-slide-bullets">
+                {activeSlide.bullets.map((b, i) => (
+                  <li key={i}>{b}</li>
+                ))}
+              </ul>
+              <div className="vr-fallback-slide-footer">{activeSlide.footer}</div>
+            </div>
+            <div className="vr-fallback-avatar-card">
+              <div className="vr-fallback-avatar-icon">👨‍🏫</div>
+              <h3 className="vr-fallback-avatar-name">{mentor?.name || 'Prof. Rajesh Sharma'}</h3>
+              <p className="vr-fallback-avatar-title">{mentor?.title || 'Lead Capstone Advisor'}</p>
+              <span className="vr-fallback-avatar-badge">Local 3D Simulation</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <VRDesktopOverlay
         currentSlide={currentSlide}

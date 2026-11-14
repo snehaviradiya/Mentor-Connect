@@ -417,3 +417,185 @@
     font-size: 0.75rem;
   }
 }
+
+@media (max-width: 360px) {
+  .vr-mode-badge {
+    display: none;
+  }
+
+  .vr-fallback-display {
+    top: 96px;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 72px;
+  }
+
+  .vr-fallback-slide-card {
+    padding: 1.25rem 1rem;
+  }
+
+  .vr-fallback-slide-title {
+    font-size: 1.25rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Accessible Fallback Display (When WebGL hardware acceleration is absent)
+   -------------------------------------------------------------------------- */
+.vr-fallback-display {
+  position: absolute;
+  top: 76px;
+  left: 1.25rem;
+  right: 1.25rem;
+  bottom: 84px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  z-index: 50;
+  pointer-events: auto;
+  overflow-y: auto;
+}
+
+.vr-fallback-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 1rem;
+  background: rgba(13, 148, 136, 0.15);
+  border: 1px solid rgba(13, 148, 136, 0.4);
+  border-radius: 8px;
+  color: #5eead4;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  backdrop-filter: blur(8px);
+}
+
+.vr-fallback-stage {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 1.25rem;
+  flex: 1;
+}
+
+.vr-fallback-slide-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 2rem 2.5rem;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.vr-fallback-slide-badge {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 0.25rem 0.75rem;
+  background: #0d9488;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.vr-fallback-slide-title {
+  margin-top: 1rem;
+  font-size: 1.625rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.vr-fallback-slide-subtitle {
+  margin-top: 0.35rem;
+  font-size: 1rem;
+  color: #475569;
+  border-bottom: 2px solid #0d9488;
+  padding-bottom: 0.75rem;
+}
+
+.vr-fallback-slide-bullets {
+  margin: 1.25rem 0;
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.vr-fallback-slide-bullets li {
+  position: relative;
+  padding-left: 1.5rem;
+  font-size: 1.0625rem;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.vr-fallback-slide-bullets li::before {
+  content: '•';
+  position: absolute;
+  left: 0.25rem;
+  color: #0d9488;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.vr-fallback-slide-footer {
+  font-size: 0.8125rem;
+  color: #64748b;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 0.75rem;
+}
+
+.vr-fallback-avatar-card {
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.75rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+}
+
+.vr-fallback-avatar-icon {
+  font-size: 3.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.vr-fallback-avatar-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.vr-fallback-avatar-title {
+  font-size: 0.8125rem;
+  color: #14b8a6;
+  margin-top: 0.25rem;
+}
+
+.vr-fallback-avatar-badge {
+  margin-top: 1.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: rgba(30, 41, 59, 0.8);
+  padding: 0.25rem 0.625rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 900px) {
+  .vr-fallback-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .vr-fallback-avatar-card {
+    display: none;
+  }
+}

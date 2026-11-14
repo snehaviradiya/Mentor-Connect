@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import './App.css';
-import { MOCK_MENTORS, MOCK_CATEGORIES } from './data/mockMentors.js';
+import { MOCK_MENTORS } from './data/mockMentors.js';
 import Navbar from './components/Navbar.jsx';
 import CategoryFilter from './components/CategoryFilter.jsx';
 import MentorCard from './components/MentorCard.jsx';
@@ -9,7 +9,6 @@ import MentorProfile from './components/MentorProfile.jsx';
 import EmptyState from './components/EmptyState.jsx';
 import ProjectOverview from './components/ProjectOverview.jsx';
 import StudentDashboard from './components/StudentDashboard.jsx';
-import { INITIAL_UPCOMING_SESSIONS } from './data/mockSessions.js';
 import ResourceLibrary from './components/ResourceLibrary.jsx';
 import SessionWorkspace from './components/SessionWorkspace.jsx';
 import AvailabilityExplorer from './components/AvailabilityExplorer.jsx';
@@ -18,6 +17,8 @@ import RegistrationModal from './components/RegistrationModal.jsx';
 import BookingModal from './components/BookingModal.jsx';
 import { ToastProvider, useToast } from './context/ToastContext.jsx';
 import { fetchMentors } from './services/api.js';
+
+const VRMentorshipRoom = lazy(() => import('./components/vr/VRMentorshipRoom.jsx'));
 
 export function AppContent({ initialLoading = null, initialMentors = import.meta.env.MODE === 'test' ? MOCK_MENTORS : [] }) {
   const [activeTab, setActiveTab] = useState('discover');
@@ -34,48 +35,42 @@ export function AppContent({ initialLoading = null, initialMentors = import.meta
   const listingsRef = useRef(null);
   const toast = useToast();
 
-  // If initialLoading is provided, respect it.
-  // In automated test environment, default to false for deterministic synchronous tests.
-  // In real browser runtime, start as true to show smooth skeleton cards while fetching.
+  const shouldFetchMentors = import.meta.env.MODE !== 'test' || initialLoading === true;
+
+  // In browsers, start with skeletons while loading. Tests can explicitly control this state.
   const [isLoading, setIsLoading] = useState(() => {
     if (initialLoading !== null) {
       return Boolean(initialLoading);
     }
-    const isTestMode = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test';
-    const isVitest = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test';
-    return !isTestMode && !isVitest;
+    return shouldFetchMentors;
   });
 
-  // On mount in real browser environment or when initialLoading is true: fetch live data
+  // Fetch the live directory once on mount; filters operate on this local result set.
   useEffect(() => {
+    if (!shouldFetchMentors) return undefined;
     let isMounted = true;
-    const shouldFetch = isLoading || (typeof window !== 'undefined' && import.meta.env?.MODE !== 'test');
-
-    if (shouldFetch) {
-      setIsLoading(true);
-      fetchMentors()
-        .then((res) => {
-          if (!isMounted) return;
-          if (!Array.isArray(res?.data?.mentors)) throw new Error('Unexpected mentor directory response.');
-          setMentors(res.data.mentors);
-          setMentorsError(null);
-        })
-        .catch((err) => {
-          if (isMounted) setMentorsError(err.message || 'Unable to load mentors. Please retry.');
-        })
-        .finally(() => {
-          if (isMounted) {
-            setTimeout(() => {
-              if (isMounted) setIsLoading(false);
-            }, 300);
-          }
-        });
-    }
+    fetchMentors()
+      .then((res) => {
+        if (!isMounted) return;
+        if (!Array.isArray(res?.data?.mentors)) throw new Error('Unexpected mentor directory response.');
+        setMentors(res.data.mentors);
+        setMentorsError(null);
+      })
+      .catch((err) => {
+        if (isMounted) setMentorsError(err.message || 'Unable to load mentors. Please retry.');
+      })
+      .finally(() => {
+        if (isMounted) {
+          setTimeout(() => {
+            if (isMounted) setIsLoading(false);
+          }, 300);
+        }
+      });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [shouldFetchMentors]);
 
   // Update a mentor profile (e.g. from EditProfileModal)
   const handleUpdateMentor = useCallback((updatedMentor) => {
@@ -119,19 +114,32 @@ export function AppContent({ initialLoading = null, initialMentors = import.meta
       // Search query match
       if (!trimmed) return true;
 
-      const nameMatch = mentor.name.toLowerCase().includes(trimmed);
-      const titleMatch = mentor.title.toLowerCase().includes(trimmed);
-      const bioMatch = mentor.bio.toLowerCase().includes(trimmed);
+      const nameMatch = mentor.name?.toLowerCase().includes(trimmed) || false;
+      const titleMatch = mentor.title?.toLowerCase().includes(trimmed) || false;
+      const bioMatch = mentor.bio?.toLowerCase().includes(trimmed) || false;
+      const categoryMatch = mentor.category?.toLowerCase().includes(trimmed) || false;
+      const experienceMatch = mentor.experience?.toLowerCase().includes(trimmed) || false;
+      const educationMatch = mentor.education?.toLowerCase().includes(trimmed) || false;
       const expertiseMatch = Array.isArray(mentor.expertise)
-        ? mentor.expertise.some((skill) => skill.toLowerCase().includes(trimmed))
+        ? mentor.expertise.some((skill) => skill?.toLowerCase().includes(trimmed))
         : false;
       const topicMatch = Array.isArray(mentor.mentoringTopics)
-        ? mentor.mentoringTopics.some((topic) => topic.toLowerCase().includes(trimmed))
+        ? mentor.mentoringTopics.some((topic) => topic?.toLowerCase().includes(trimmed))
         : false;
 
-      return nameMatch || titleMatch || bioMatch || expertiseMatch || topicMatch;
+      return nameMatch || titleMatch || bioMatch || categoryMatch || experienceMatch || educationMatch || expertiseMatch || topicMatch;
     });
   }, [mentors, searchQuery, selectedCategory]);
+
+  const mentorCategories = useMemo(() => [
+    'All',
+    ...new Set(
+      mentors
+        .map((mentor) => mentor.category?.trim())
+        .filter((category) => category && category !== 'All')
+        .sort((a, b) => a.localeCompare(b))
+    ),
+  ], [mentors]);
 
   const availabilityMentors = filteredMentors;
   const visibleMentors = selectedAvailability
@@ -174,7 +182,9 @@ export function AppContent({ initialLoading = null, initialMentors = import.meta
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    setSelectedMentorId(null);
+    if (tab !== 'vr-room') {
+      setSelectedMentorId(null);
+    }
     setQuickBookingMentor(null);
     setWorkspaceSession(null);
   };
@@ -200,6 +210,7 @@ export function AppContent({ initialLoading = null, initialMentors = import.meta
               onBack={() => setSelectedMentorId(null)}
               onUpdateMentor={handleUpdateMentor}
               onBookingSuccess={() => setDashboardRefreshKey((key) => key + 1)}
+              onEnterVR={() => setActiveTab('vr-room')}
             />
           ) : (
             /* Mentor Discovery Directory View */
@@ -213,14 +224,14 @@ export function AppContent({ initialLoading = null, initialMentors = import.meta
                 onSelectMentor={setSelectedMentorId}
                 onBrowseMentors={scrollToMentors}
                 mentorCount={mentors.length}
-                sessionCount={INITIAL_UPCOMING_SESSIONS.length}
+                specializationCount={mentorCategories.length - 1}
                 onOpenSignup={() => setIsRegistrationOpen(true)}
               />
 
               {/* Search and Filters Control Panel */}
               <div className="discovery-controls" ref={listingsRef} id="mentor-listings">
                 <CategoryFilter
-                  categories={MOCK_CATEGORIES}
+                  categories={mentorCategories}
                   selectedCategory={selectedCategory}
                   onSelectCategory={setSelectedCategory}
                 />
@@ -327,6 +338,11 @@ export function AppContent({ initialLoading = null, initialMentors = import.meta
                     />
                   ))}
                 </div>
+              ) : mentorsError && mentors.length === 0 ? null : mentors.length === 0 && !isFiltered ? (
+                <div className="empty-state-card" role="status">
+                  <h2 className="empty-title">No mentors available yet</h2>
+                  <p className="empty-description">Please check back later for new mentor profiles.</p>
+                </div>
               ) : (
                 <EmptyState
                   searchQuery={searchQuery}
@@ -364,6 +380,20 @@ export function AppContent({ initialLoading = null, initialMentors = import.meta
               setActiveTab('dashboard');
             }}
           />
+        ) : activeTab === 'vr-room' ? (
+          <Suspense
+            fallback={
+              <div className="vr-loading-container" role="status" aria-live="polite">
+                <div className="vr-loading-spinner" />
+                <p className="vr-loading-text">Loading 3D Mentorship Environment...</p>
+              </div>
+            }
+          >
+            <VRMentorshipRoom
+              mentor={selectedMentor}
+              onExit={() => handleTabChange('discover')}
+            />
+          </Suspense>
         ) : activeTab === 'resources' ? (
           <ResourceLibrary
             onSelectMentor={(id) => {
