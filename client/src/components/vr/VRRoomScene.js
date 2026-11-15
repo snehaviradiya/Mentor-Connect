@@ -435,7 +435,7 @@ export function buildMentorshipRoom(scene) {
 
   // Mentor Chair (Seated behind table)
   const mentorChair = createExecutiveChair(THEME_COLORS.navyDark, 0x090d16);
-  mentorChair.position.set(0.95, 0, -2.1);
+  mentorChair.position.set(1.25, 0, -2.1);
   mentorChair.rotation.y = Math.PI - 0.15;
   roomGroup.add(mentorChair);
 
@@ -538,8 +538,8 @@ export function buildMentorshipRoom(scene) {
 
   // Dedicated Warm Key Spotlight on Mentor Avatar
   const mentorSpotlight = new THREE.SpotLight(0xfff1e6, 2.0, 10, Math.PI / 4, 0.3);
-  mentorSpotlight.position.set(0.95, height - 0.3, -0.6);
-  mentorSpotlight.target.position.set(0.95, 1.35, -2.1);
+  mentorSpotlight.position.set(1.25, height - 0.3, -0.6);
+  mentorSpotlight.target.position.set(1.25, 1.35, -2.1);
   roomGroup.add(mentorSpotlight);
   roomGroup.add(mentorSpotlight.target);
 

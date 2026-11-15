@@ -16,7 +16,7 @@ import './VRRoom.css';
  * Provides interactive slides, stylized 3D mentor representation,
  * first-person navigation, and genuine WebXR VR headset support.
  */
-export default function VRMentorshipRoom({ mentor = null, onExit }) {
+export default function VRMentorshipRoom({ mentor = null, session = null, onExit }) {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
 
@@ -49,26 +49,38 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
     mouse: new THREE.Vector2(),
   });
 
-  // Prepare custom slides based on the active mentor's topics if available
+  // Prepare custom slides based on the active mentor's topics and session details
   const mentorSlides = useMemo(() => {
-    if (!mentor) return DEFAULT_SLIDES;
+    if (!mentor && !session) return DEFAULT_SLIDES;
+
+    const mentorName = mentor?.name || session?.mentor?.name || 'Prof. Rajesh Sharma';
+    const category = mentor?.category || session?.mentor?.category || session?.sessionTopic || 'Software Engineering';
+    const title = mentor?.title || session?.mentor?.title || 'Lead Specialist';
+
+    const firstSlideBullets = session ? [
+      `• Topic: ${session.sessionTopic || session.topic || 'Capstone Architecture Review'}`,
+      `• Schedule: ${session.date || 'Today'} at ${session.timeSlot || 'Scheduled Slot'}`,
+      `• Status: ${session.status || 'CONFIRMED'} • Live Interactive WebXR Room`,
+      `• Focus: System architecture, service boundaries & code walkthrough`,
+    ] : [
+      `• Focus Domain: ${category}`,
+      `• Session Agenda: System Design, Architecture, & Career Direction`,
+      `• Available for Capstone Guidance, Code Reviews, & Mock Interviews`,
+      `• Rate: $${mentor?.hourlyRate || 50}/hr • Rating: ${mentor?.rating || 5.0}★ (${mentor?.reviewCount || 0} reviews)`,
+    ];
+
     return [
       {
         id: 1,
-        badge: mentor.category?.toUpperCase() || 'MENTORSHIP',
-        title: `Mentorship with ${mentor.name}`,
-        subtitle: `${mentor.title || 'Lead Specialist'} • ${mentor.experience || 'Industry Expert'}`,
-        bullets: [
-          `• Focus Domain: ${mentor.category || 'Software Engineering'}`,
-          `• Session Agenda: System Design, Architecture, & Career Direction`,
-          `• Available for Capstone Guidance, Code Reviews, & Mock Interviews`,
-          `• Rate: $${mentor.hourlyRate || 50}/hr • Rating: ${mentor.rating || 5.0}★ (${mentor.reviewCount || 0} reviews)`,
-        ],
-        footer: 'Interactive WebXR Mentorship Room',
+        badge: category.toUpperCase().slice(0, 24),
+        title: session ? `Mentorship Session: ${session.sessionTopic || 'Capstone Review'}` : `Mentorship with ${mentorName}`,
+        subtitle: `${mentorName} • ${title}`,
+        bullets: firstSlideBullets,
+        footer: session ? `Session ID: #${session.id?.slice(0, 8) || 'LIVE'} • Mentor Connect Studio` : 'Interactive WebXR Mentorship Room',
       },
       ...DEFAULT_SLIDES.slice(1),
     ];
-  }, [mentor]);
+  }, [mentor, session]);
 
   // Handlers for slide navigation
   const handlePrevSlide = useCallback(() => {
@@ -90,6 +102,16 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
       setCurrentSlide((prev) => (prev + 1) % mentorSlides.length);
     }
   }, [mentorSlides.length]);
+
+  const handleGoToSlide = useCallback((index) => {
+    const wb = systemsRef.current.whiteboard;
+    if (wb) {
+      const idx = wb.goToSlide(index);
+      setCurrentSlide(idx);
+    } else {
+      setCurrentSlide(index);
+    }
+  }, []);
 
   const handleSelectPreset = useCallback((presetKey) => {
     const controls = systemsRef.current.controls;
@@ -371,6 +393,7 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
         totalSlides={mentorSlides.length}
         onPrevSlide={handlePrevSlide}
         onNextSlide={handleNextSlide}
+        onGoToSlide={handleGoToSlide}
         onSelectPreset={handleSelectPreset}
         activePreset={activePreset}
         onResetCamera={handleResetCamera}
@@ -379,6 +402,7 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
         isVRSessionActive={isVRSessionActive}
         onExit={onExit}
         mentor={mentor}
+        session={session}
       />
     </div>
   );

@@ -2,9 +2,12 @@ import * as THREE from 'three';
 import { THEME_COLORS } from './VRRoomConstants.js';
 
 /**
- * Creates a stylized, luxury architectural 3D mentor avatar representation.
- * Transparently identified as a local 3D representation without faking
- * live audio or pretending real-time synchronization.
+ * Creates an anatomically proportioned, luxury styled 3D mentor avatar.
+ * Rebuilt with organic head contours, seamless deltoid shoulder joints,
+ * articulated arms resting naturally on the conference desk, realistic spectacles,
+ * and a stereoscopic WebXR-compatible 3D nameplate directly above the head.
+ *
+ * Transparently disclosed as an autonomous local 3D representation.
  */
 export function buildMentorAvatar(scene, mentorData = null) {
   const avatarGroup = new THREE.Group();
@@ -18,39 +21,45 @@ export function buildMentorAvatar(scene, mentorData = null) {
 
   // 1. Physically Based Materials
   const skinMaterial = new THREE.MeshStandardMaterial({
-    color: 0xd9a574,
-    roughness: 0.62,
-    metalness: 0.04,
+    color: 0xd69a68,
+    roughness: 0.58,
+    metalness: 0.03,
+  });
+
+  const lipsMaterial = new THREE.MeshStandardMaterial({
+    color: 0xba765a,
+    roughness: 0.65,
+    metalness: 0.02,
   });
 
   const hairMaterial = new THREE.MeshStandardMaterial({
-    color: 0x1f1712,
-    roughness: 0.85,
+    color: 0x1a130f,
+    roughness: 0.82,
     metalness: 0.02,
   });
 
   const blazerMaterial = new THREE.MeshStandardMaterial({
     color: THEME_COLORS.navyDark,
-    roughness: 0.72,
-    metalness: 0.12,
+    roughness: 0.74,
+    metalness: 0.10,
   });
 
   const blazerLapelMaterial = new THREE.MeshStandardMaterial({
     color: 0x090d16,
-    roughness: 0.65,
-    metalness: 0.16,
+    roughness: 0.68,
+    metalness: 0.14,
   });
 
   const shirtMaterial = new THREE.MeshStandardMaterial({
     color: 0xf8fafc,
-    roughness: 0.45,
+    roughness: 0.42,
     metalness: 0.02,
   });
 
   const tieMaterial = new THREE.MeshStandardMaterial({
     color: THEME_COLORS.tealAccent,
-    roughness: 0.32,
-    metalness: 0.24,
+    roughness: 0.30,
+    metalness: 0.22,
   });
 
   const slacksMaterial = new THREE.MeshStandardMaterial({
@@ -61,31 +70,31 @@ export function buildMentorAvatar(scene, mentorData = null) {
 
   const shoesMaterial = new THREE.MeshStandardMaterial({
     color: 0x110d0a,
-    roughness: 0.35,
-    metalness: 0.3,
+    roughness: 0.32,
+    metalness: 0.28,
   });
 
   const glassesFrameMat = new THREE.MeshStandardMaterial({
     color: THEME_COLORS.metalTitanium,
-    roughness: 0.22,
-    metalness: 0.85,
+    roughness: 0.20,
+    metalness: 0.88,
   });
 
   const glassesLensMat = new THREE.MeshStandardMaterial({
     color: 0xa5f3fc,
     transparent: true,
-    opacity: 0.28,
-    roughness: 0.05,
-    metalness: 0.1,
+    opacity: 0.25,
+    roughness: 0.04,
+    metalness: 0.08,
   });
 
   const goldPinMat = new THREE.MeshStandardMaterial({
     color: 0xf59e0b,
-    roughness: 0.2,
-    metalness: 0.9,
+    roughness: 0.22,
+    metalness: 0.92,
   });
 
-  const titaniumWatchMat = new THREE.MeshStandardMaterial({
+  const watchMat = new THREE.MeshStandardMaterial({
     color: 0x475569,
     roughness: 0.25,
     metalness: 0.85,
@@ -96,502 +105,387 @@ export function buildMentorAvatar(scene, mentorData = null) {
   lowerBodyGroup.name = 'LowerBodyGroup';
 
   // Hips
-  const hips = new THREE.Mesh(
-    new THREE.BoxGeometry(0.46, 0.18, 0.42),
-    slacksMaterial
-  );
+  const hips = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.18, 0.42), slacksMaterial);
   hips.position.set(0, 0.52, 0);
   lowerBodyGroup.add(hips);
 
   // Left & Right Thighs (extending forward to table edge)
-  const leftThigh = new THREE.Mesh(
-    new THREE.BoxGeometry(0.18, 0.16, 0.46),
-    slacksMaterial
-  );
-  leftThigh.position.set(-0.14, 0.51, 0.23);
+  const leftThigh = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.16, 0.48), slacksMaterial);
+  leftThigh.position.set(-0.14, 0.51, 0.24);
   lowerBodyGroup.add(leftThigh);
 
-  const rightThigh = new THREE.Mesh(
-    new THREE.BoxGeometry(0.18, 0.16, 0.46),
-    slacksMaterial
-  );
-  rightThigh.position.set(0.14, 0.51, 0.23);
+  const rightThigh = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.16, 0.48), slacksMaterial);
+  rightThigh.position.set(0.14, 0.51, 0.24);
   lowerBodyGroup.add(rightThigh);
 
   // Calves dropping vertically to floor
-  const leftCalf = new THREE.Mesh(
-    new THREE.BoxGeometry(0.16, 0.44, 0.16),
-    slacksMaterial
-  );
-  leftCalf.position.set(-0.14, 0.24, 0.42);
+  const leftCalf = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.44, 0.15), slacksMaterial);
+  leftCalf.position.set(-0.14, 0.24, 0.44);
   lowerBodyGroup.add(leftCalf);
 
-  const rightCalf = new THREE.Mesh(
-    new THREE.BoxGeometry(0.16, 0.44, 0.16),
-    slacksMaterial
-  );
-  rightCalf.position.set(0.14, 0.24, 0.42);
+  const rightCalf = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.44, 0.15), slacksMaterial);
+  rightCalf.position.set(0.14, 0.24, 0.44);
   lowerBodyGroup.add(rightCalf);
 
   // Dress Oxford Shoes
-  const leftShoe = new THREE.Mesh(
-    new THREE.BoxGeometry(0.15, 0.08, 0.26),
-    shoesMaterial
-  );
-  leftShoe.position.set(-0.14, 0.04, 0.47);
+  const leftShoe = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.26), shoesMaterial);
+  leftShoe.position.set(-0.14, 0.04, 0.48);
   lowerBodyGroup.add(leftShoe);
 
-  const rightShoe = new THREE.Mesh(
-    new THREE.BoxGeometry(0.15, 0.08, 0.26),
-    shoesMaterial
-  );
-  rightShoe.position.set(0.14, 0.04, 0.47);
+  const rightShoe = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.26), shoesMaterial);
+  rightShoe.position.set(0.14, 0.04, 0.48);
   lowerBodyGroup.add(rightShoe);
 
   avatarGroup.add(lowerBodyGroup);
 
-  // 3. Avatar Upper Body (Torso, Tailored Blazer, Arms resting forward on marble desk)
+  // 3. Avatar Upper Body & Seamlessly Connected Arms
   const torsoGroup = new THREE.Group();
   torsoGroup.name = 'TorsoGroup';
 
-  // Main Blazer Torso (Sculpted with V-shape taper)
-  const torso = new THREE.Mesh(
-    new THREE.BoxGeometry(0.52, 0.62, 0.3),
-    blazerMaterial
-  );
+  // Main Blazer Torso (Curved ergonomic V-taper)
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.60, 0.28), blazerMaterial);
   torso.position.y = 0.88;
   torso.castShadow = true;
   torsoGroup.add(torso);
 
-  // Blazer Lapels (Left and Right angled dark fabric trims)
-  const leftLapel = new THREE.Mesh(
-    new THREE.BoxGeometry(0.08, 0.42, 0.03),
-    blazerLapelMaterial
-  );
-  leftLapel.position.set(-0.11, 0.94, 0.155);
+  // Blazer Lapels (Left and Right dark trim)
+  const leftLapel = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.40, 0.025), blazerLapelMaterial);
+  leftLapel.position.set(-0.11, 0.94, 0.145);
   leftLapel.rotation.z = -0.15;
   torsoGroup.add(leftLapel);
 
-  const rightLapel = new THREE.Mesh(
-    new THREE.BoxGeometry(0.08, 0.42, 0.03),
-    blazerLapelMaterial
-  );
-  rightLapel.position.set(0.11, 0.94, 0.155);
+  const rightLapel = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.40, 0.025), blazerLapelMaterial);
+  rightLapel.position.set(0.11, 0.94, 0.145);
   rightLapel.rotation.z = 0.15;
   torsoGroup.add(rightLapel);
 
-  // Pocket Square & Lapel Pin
-  const pocketSquare = new THREE.Mesh(
-    new THREE.BoxGeometry(0.09, 0.025, 0.02),
-    shirtMaterial
-  );
-  pocketSquare.position.set(-0.17, 0.98, 0.155);
+  // Pocket Square & Gold Lapel Pin
+  const pocketSquare = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.025, 0.015), shirtMaterial);
+  pocketSquare.position.set(-0.16, 0.98, 0.145);
   pocketSquare.rotation.z = 0.1;
   torsoGroup.add(pocketSquare);
 
-  const lapelPin = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.012, 0.012, 0.008, 12),
-    goldPinMat
-  );
+  const lapelPin = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.010, 0.008, 12), goldPinMat);
   lapelPin.rotation.x = Math.PI / 2;
-  lapelPin.position.set(-0.15, 1.05, 0.165);
+  lapelPin.position.set(-0.14, 1.05, 0.152);
   torsoGroup.add(lapelPin);
 
   // Crisp Shirt Center Insert
-  const shirt = new THREE.Mesh(
-    new THREE.BoxGeometry(0.18, 0.40, 0.03),
-    shirtMaterial
-  );
-  shirt.position.set(0, 0.98, 0.145);
+  const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.38, 0.02), shirtMaterial);
+  shirt.position.set(0, 0.98, 0.138);
   torsoGroup.add(shirt);
 
   // Shirt Collar Wings
-  const leftCollarWing = new THREE.Mesh(
-    new THREE.BoxGeometry(0.07, 0.05, 0.04),
-    shirtMaterial
-  );
-  leftCollarWing.position.set(-0.06, 1.15, 0.15);
-  leftCollarWing.rotation.z = -0.25;
+  const leftCollarWing = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.045, 0.03), shirtMaterial);
+  leftCollarWing.position.set(-0.055, 1.14, 0.14);
+  leftCollarWing.rotation.z = -0.22;
   torsoGroup.add(leftCollarWing);
 
-  const rightCollarWing = new THREE.Mesh(
-    new THREE.BoxGeometry(0.07, 0.05, 0.04),
-    shirtMaterial
-  );
-  rightCollarWing.position.set(0.06, 1.15, 0.15);
-  rightCollarWing.rotation.z = 0.25;
+  const rightCollarWing = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.045, 0.03), shirtMaterial);
+  rightCollarWing.position.set(0.055, 1.14, 0.14);
+  rightCollarWing.rotation.z = 0.22;
   torsoGroup.add(rightCollarWing);
 
   // Silk Teal Tie Knot & Body
-  const tieKnot = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.028, 0.02, 0.05, 8),
-    tieMaterial
-  );
-  tieKnot.position.set(0, 1.14, 0.16);
+  const tieKnot = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.018, 0.045, 12), tieMaterial);
+  tieKnot.position.set(0, 1.13, 0.15);
   torsoGroup.add(tieKnot);
 
-  const tie = new THREE.Mesh(
-    new THREE.BoxGeometry(0.052, 0.32, 0.02),
-    tieMaterial
-  );
-  tie.position.set(0, 0.96, 0.165);
+  const tie = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.30, 0.015), tieMaterial);
+  tie.position.set(0, 0.96, 0.152);
   torsoGroup.add(tie);
 
   // Brushed Titanium Tie Clip
-  const tieClip = new THREE.Mesh(
-    new THREE.BoxGeometry(0.048, 0.008, 0.01),
-    glassesFrameMat
-  );
-  tieClip.position.set(0, 0.99, 0.178);
+  const tieClip = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.007, 0.01), glassesFrameMat);
+  tieClip.position.set(0, 0.99, 0.162);
   torsoGroup.add(tieClip);
 
-  // Natural Arms resting forward onto the table surface (tabletop y = 0.76)
-  // Left Arm (With Luxury Titanium Wristwatch)
-  const leftShoulder = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.075, 0.07, 0.36, 16),
-    blazerMaterial
-  );
-  leftShoulder.position.set(-0.33, 0.88, 0.06);
-  leftShoulder.rotation.set(0.35, 0, 0.18);
-  torsoGroup.add(leftShoulder);
+  // Seamless Deltoid Shoulder Joints connecting torso directly to arms
+  const leftDeltoid = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 16), blazerMaterial);
+  leftDeltoid.position.set(-0.29, 1.05, 0.02);
+  torsoGroup.add(leftDeltoid);
 
-  const leftForearm = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.065, 0.055, 0.38, 16),
-    blazerMaterial
-  );
-  leftForearm.position.set(-0.29, 0.77, 0.32);
-  leftForearm.rotation.set(1.15, -0.15, 0);
+  const rightDeltoid = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 16), blazerMaterial);
+  rightDeltoid.position.set(0.29, 1.05, 0.02);
+  torsoGroup.add(rightDeltoid);
+
+  // Left Arm (Seamlessly connected to deltoid at y = 1.05)
+  const leftUpperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.060, 0.30, 16), blazerMaterial);
+  leftUpperArm.position.set(-0.31, 0.90, 0.05);
+  leftUpperArm.rotation.set(0.32, 0, 0.15);
+  torsoGroup.add(leftUpperArm);
+
+  const leftElbow = new THREE.Mesh(new THREE.SphereGeometry(0.060, 14, 14), blazerMaterial);
+  leftElbow.position.set(-0.30, 0.77, 0.16);
+  torsoGroup.add(leftElbow);
+
+  const leftForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.050, 0.34, 16), blazerMaterial);
+  leftForearm.position.set(-0.28, 0.76, 0.32);
+  leftForearm.rotation.set(1.22, -0.12, 0);
   torsoGroup.add(leftForearm);
 
-  // Left Shirt Cuff
-  const leftCuff = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.058, 0.058, 0.04, 16),
-    shirtMaterial
-  );
-  leftCuff.position.set(-0.27, 0.77, 0.47);
-  leftCuff.rotation.set(1.15, -0.15, 0);
+  // Left Shirt Cuff & Luxury Wristwatch
+  const leftCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.054, 0.054, 0.035, 16), shirtMaterial);
+  leftCuff.position.set(-0.26, 0.77, 0.46);
+  leftCuff.rotation.set(1.22, -0.12, 0);
   torsoGroup.add(leftCuff);
 
-  // Luxury Wristwatch on Left Wrist
-  const watchBezel = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.024, 0.024, 0.014, 16),
-    titaniumWatchMat
-  );
-  watchBezel.position.set(-0.265, 0.785, 0.465);
+  const watchBezel = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.012, 16), watchMat);
+  watchBezel.position.set(-0.255, 0.785, 0.46);
   watchBezel.rotation.x = Math.PI / 2;
   torsoGroup.add(watchBezel);
 
-  // Left Hand (Sculpted with fingers relaxed on marble table)
-  const leftHand = new THREE.Mesh(
-    new THREE.BoxGeometry(0.09, 0.038, 0.12),
-    skinMaterial
-  );
-  leftHand.position.set(-0.26, 0.77, 0.54);
+  // Left Hand resting on desk
+  const leftHand = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.034, 0.11), skinMaterial);
+  leftHand.position.set(-0.25, 0.77, 0.53);
   torsoGroup.add(leftHand);
 
-  // Right Arm
-  const rightShoulder = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.075, 0.07, 0.36, 16),
-    blazerMaterial
-  );
-  rightShoulder.position.set(0.33, 0.88, 0.06);
-  rightShoulder.rotation.set(0.35, 0, -0.18);
-  torsoGroup.add(rightShoulder);
+  // Right Arm (Seamlessly connected to deltoid)
+  const rightUpperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.060, 0.30, 16), blazerMaterial);
+  rightUpperArm.position.set(0.31, 0.90, 0.05);
+  rightUpperArm.rotation.set(0.32, 0, -0.15);
+  torsoGroup.add(rightUpperArm);
 
-  const rightForearm = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.065, 0.055, 0.38, 16),
-    blazerMaterial
-  );
-  rightForearm.position.set(0.29, 0.77, 0.32);
-  rightForearm.rotation.set(1.15, 0.15, 0);
+  const rightElbow = new THREE.Mesh(new THREE.SphereGeometry(0.060, 14, 14), blazerMaterial);
+  rightElbow.position.set(0.30, 0.77, 0.16);
+  torsoGroup.add(rightElbow);
+
+  const rightForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.050, 0.34, 16), blazerMaterial);
+  rightForearm.position.set(0.28, 0.76, 0.32);
+  rightForearm.rotation.set(1.22, 0.12, 0);
   torsoGroup.add(rightForearm);
 
-  // Right Shirt Cuff
-  const rightCuff = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.058, 0.058, 0.04, 16),
-    shirtMaterial
-  );
-  rightCuff.position.set(0.27, 0.77, 0.47);
-  rightCuff.rotation.set(1.15, 0.15, 0);
+  const rightCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.054, 0.054, 0.035, 16), shirtMaterial);
+  rightCuff.position.set(0.26, 0.77, 0.46);
+  rightCuff.rotation.set(1.22, 0.12, 0);
   torsoGroup.add(rightCuff);
 
-  // Right Hand (Sculpted resting on table)
-  const rightHand = new THREE.Mesh(
-    new THREE.BoxGeometry(0.09, 0.038, 0.12),
-    skinMaterial
-  );
-  rightHand.position.set(0.26, 0.77, 0.54);
+  const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.034, 0.11), skinMaterial);
+  rightHand.position.set(0.25, 0.77, 0.53);
   torsoGroup.add(rightHand);
 
   avatarGroup.add(torsoGroup);
 
-  // 4. Anatomically Proportioned Head, Face, Hair & Glasses
+  // 4. Anatomically Sculpted Head & Organic Face Features
   const headGroup = new THREE.Group();
   headGroup.name = 'HeadGroup';
-  headGroup.position.set(0, 1.34, 0.05);
+  headGroup.position.set(0, 1.34, 0.04);
 
   // Neck
-  const neck = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.082, 0.092, 0.16, 16),
-    skinMaterial
-  );
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.076, 0.086, 0.16, 20), skinMaterial);
   neck.position.y = -0.06;
   headGroup.add(neck);
 
-  // Main Head (Rounded, contoured jaw)
-  const head = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.12, 0.10, 0.28, 18),
-    skinMaterial
-  );
-  head.castShadow = true;
-  headGroup.add(head);
+  // Organic Cranium (Smooth Sphere slightly oval)
+  const craniumGeo = new THREE.SphereGeometry(0.122, 24, 20);
+  craniumGeo.scale(1.0, 1.14, 1.02);
+  const cranium = new THREE.Mesh(craniumGeo, skinMaterial);
+  cranium.castShadow = true;
+  headGroup.add(cranium);
 
-  // Chin & Jaw definition
-  const jaw = new THREE.Mesh(
-    new THREE.BoxGeometry(0.16, 0.10, 0.18),
-    skinMaterial
-  );
-  jaw.position.set(0, -0.09, 0.04);
-  headGroup.add(jaw);
+  // Tapered Jaw and Chin
+  const chin = new THREE.Mesh(new THREE.SphereGeometry(0.055, 16, 16), skinMaterial);
+  chin.position.set(0, -0.10, 0.05);
+  headGroup.add(chin);
 
-  // Nose Bridge & Tip
-  const nose = new THREE.Mesh(
-    new THREE.BoxGeometry(0.034, 0.07, 0.04),
-    skinMaterial
-  );
-  nose.position.set(0, 0.01, 0.135);
-  headGroup.add(nose);
+  // Sculpted Wedge Nose (smooth bridge and nostrils)
+  const noseGroup = new THREE.Group();
+  noseGroup.position.set(0, 0.015, 0.122);
 
-  // Left & Right Ears
-  const leftEar = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.026, 0.026, 0.016, 12),
-    skinMaterial
-  );
-  leftEar.position.set(-0.128, 0.02, 0);
+  const noseBridge = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.016, 0.065, 8), skinMaterial);
+  noseBridge.rotation.x = 0.22;
+  noseGroup.add(noseBridge);
+
+  const noseTip = new THREE.Mesh(new THREE.SphereGeometry(0.014, 12, 12), skinMaterial);
+  noseTip.position.set(0, -0.024, 0.015);
+  noseGroup.add(noseTip);
+  headGroup.add(noseGroup);
+
+  // Inset Eyes (Realistic Sclera Spheres with Dark Iris)
+  const eyeScleraMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+  const eyeIrisMat = new THREE.MeshBasicMaterial({ color: 0x1c1917 });
+  const eyePupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+  // Left Eye
+  const leftEyeSphere = new THREE.Mesh(new THREE.SphereGeometry(0.018, 16, 16), eyeScleraMat);
+  leftEyeSphere.position.set(-0.048, 0.038, 0.104);
+  headGroup.add(leftEyeSphere);
+
+  const leftIris = new THREE.Mesh(new THREE.CircleGeometry(0.010, 16), eyeIrisMat);
+  leftIris.position.set(-0.048, 0.038, 0.122);
+  headGroup.add(leftIris);
+
+  const leftPupil = new THREE.Mesh(new THREE.CircleGeometry(0.005, 12), eyePupilMat);
+  leftPupil.position.set(-0.048, 0.038, 0.123);
+  headGroup.add(leftPupil);
+
+  // Right Eye
+  const rightEyeSphere = new THREE.Mesh(new THREE.SphereGeometry(0.018, 16, 16), eyeScleraMat);
+  rightEyeSphere.position.set(0.048, 0.038, 0.104);
+  headGroup.add(rightEyeSphere);
+
+  const rightIris = new THREE.Mesh(new THREE.CircleGeometry(0.010, 16), eyeIrisMat);
+  rightIris.position.set(0.048, 0.038, 0.122);
+  headGroup.add(rightIris);
+
+  const rightPupil = new THREE.Mesh(new THREE.CircleGeometry(0.005, 12), eyePupilMat);
+  rightPupil.position.set(0.048, 0.038, 0.123);
+  headGroup.add(rightPupil);
+
+  // Natural Eyebrows
+  const leftBrow = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.010, 0.010), hairMaterial);
+  leftBrow.position.set(-0.048, 0.065, 0.114);
+  leftBrow.rotation.z = 0.05;
+  headGroup.add(leftBrow);
+
+  const rightBrow = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.010, 0.010), hairMaterial);
+  rightBrow.position.set(0.048, 0.065, 0.114);
+  rightBrow.rotation.z = -0.05;
+  headGroup.add(rightBrow);
+
+  // Gentle Composed Friendly Mouth
+  const mouth = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.054, 8), lipsMaterial);
+  mouth.position.set(0, -0.052, 0.112);
+  mouth.rotation.z = Math.PI / 2;
+  mouth.scale.set(0.4, 1.0, 0.3);
+  headGroup.add(mouth);
+
+  // Anatomical Ears
+  const leftEar = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.022, 0.014, 12), skinMaterial);
+  leftEar.position.set(-0.122, 0.025, 0);
   leftEar.rotation.z = Math.PI / 2;
   headGroup.add(leftEar);
 
-  const rightEar = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.026, 0.026, 0.016, 12),
-    skinMaterial
-  );
-  rightEar.position.set(0.128, 0.02, 0);
+  const rightEar = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.022, 0.014, 12), skinMaterial);
+  rightEar.position.set(0.122, 0.025, 0);
   rightEar.rotation.z = Math.PI / 2;
   headGroup.add(rightEar);
 
-  // Eyes with White Sclera, Dark Iris, and Specular Dots
-  const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const eyeIrisMat = new THREE.MeshBasicMaterial({ color: 0x1e1510 });
+  // Stylized Executive Hairstyle
+  const hairGroup = new THREE.Group();
+  const hairTopGeo = new THREE.SphereGeometry(0.128, 20, 16);
+  hairTopGeo.scale(1.0, 1.12, 1.04);
+  const hairTop = new THREE.Mesh(hairTopGeo, hairMaterial);
+  hairTop.position.set(0, 0.02, -0.01);
+  hairGroup.add(hairTop);
 
-  const leftEyeWhite = new THREE.Mesh(
-    new THREE.BoxGeometry(0.042, 0.024, 0.01),
-    eyeWhiteMat
-  );
-  leftEyeWhite.position.set(-0.055, 0.04, 0.118);
-  headGroup.add(leftEyeWhite);
+  const hairPart = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.05), hairMaterial);
+  hairPart.position.set(-0.02, 0.13, 0.09);
+  hairPart.rotation.z = -0.12;
+  hairGroup.add(hairPart);
+  headGroup.add(hairGroup);
 
-  const leftIris = new THREE.Mesh(
-    new THREE.BoxGeometry(0.02, 0.02, 0.012),
-    eyeIrisMat
-  );
-  leftIris.position.set(-0.055, 0.04, 0.12);
-  headGroup.add(leftIris);
-
-  const rightEyeWhite = new THREE.Mesh(
-    new THREE.BoxGeometry(0.042, 0.024, 0.01),
-    eyeWhiteMat
-  );
-  rightEyeWhite.position.set(0.055, 0.04, 0.118);
-  headGroup.add(rightEyeWhite);
-
-  const rightIris = new THREE.Mesh(
-    new THREE.BoxGeometry(0.02, 0.02, 0.012),
-    eyeIrisMat
-  );
-  rightIris.position.set(0.055, 0.04, 0.12);
-  headGroup.add(rightIris);
-
-  // Expressive Brows
-  const leftBrow = new THREE.Mesh(
-    new THREE.BoxGeometry(0.055, 0.012, 0.012),
-    hairMaterial
-  );
-  leftBrow.position.set(-0.055, 0.07, 0.124);
-  leftBrow.rotation.z = 0.06;
-  headGroup.add(leftBrow);
-
-  const rightBrow = new THREE.Mesh(
-    new THREE.BoxGeometry(0.055, 0.012, 0.012),
-    hairMaterial
-  );
-  rightBrow.position.set(0.055, 0.07, 0.124);
-  rightBrow.rotation.z = -0.06;
-  headGroup.add(rightBrow);
-
-  // Friendly Composed Mouth Line
-  const mouth = new THREE.Mesh(
-    new THREE.BoxGeometry(0.075, 0.01, 0.01),
-    new THREE.MeshStandardMaterial({ color: 0xa86e57, roughness: 0.8 })
-  );
-  mouth.position.set(0, -0.06, 0.124);
-  headGroup.add(mouth);
-
-  // Sculpted Modern Executive Hairstyle
-  const hairCrown = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.13, 0.135, 0.12, 16),
-    hairMaterial
-  );
-  hairCrown.position.set(0, 0.13, -0.01);
-  headGroup.add(hairCrown);
-
-  const hairTop = new THREE.Mesh(
-    new THREE.SphereGeometry(0.132, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-    hairMaterial
-  );
-  hairTop.position.set(0, 0.15, -0.01);
-  headGroup.add(hairTop);
-
-  const hairSwoop = new THREE.Mesh(
-    new THREE.BoxGeometry(0.14, 0.06, 0.06),
-    hairMaterial
-  );
-  hairSwoop.position.set(-0.03, 0.13, 0.10);
-  hairSwoop.rotation.z = -0.15;
-  headGroup.add(hairSwoop);
-
-  // Modern Titanium Spectacles with Glass Lenses
+  // Modern Titanium Spectacles (Torus wireframes with Glass Lenses)
   const glassesGroup = new THREE.Group();
-  glassesGroup.position.set(0, 0.038, 0.126);
+  glassesGroup.position.set(0, 0.038, 0.122);
 
-  // Left Rim & Lens
-  const leftRim = new THREE.Mesh(
-    new THREE.RingGeometry(0.026, 0.033, 24),
-    glassesFrameMat
-  );
-  leftRim.position.set(-0.056, 0, 0);
+  const leftRim = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.0028, 8, 24), glassesFrameMat);
+  leftRim.position.set(-0.048, 0, 0);
   glassesGroup.add(leftRim);
 
-  const leftLens = new THREE.Mesh(
-    new THREE.CircleGeometry(0.026, 24),
-    glassesLensMat
-  );
-  leftLens.position.set(-0.056, 0, 0.001);
+  const leftLens = new THREE.Mesh(new THREE.CircleGeometry(0.023, 24), glassesLensMat);
+  leftLens.position.set(-0.048, 0, 0.001);
   glassesGroup.add(leftLens);
 
-  // Right Rim & Lens
-  const rightRim = new THREE.Mesh(
-    new THREE.RingGeometry(0.026, 0.033, 24),
-    glassesFrameMat
-  );
-  rightRim.position.set(0.056, 0, 0);
+  const rightRim = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.0028, 8, 24), glassesFrameMat);
+  rightRim.position.set(0.048, 0, 0);
   glassesGroup.add(rightRim);
 
-  const rightLens = new THREE.Mesh(
-    new THREE.CircleGeometry(0.026, 24),
-    glassesLensMat
-  );
-  rightLens.position.set(0.056, 0, 0.001);
+  const rightLens = new THREE.Mesh(new THREE.CircleGeometry(0.023, 24), glassesLensMat);
+  rightLens.position.set(0.048, 0, 0.001);
   glassesGroup.add(rightLens);
 
-  // Frame Bridge
-  const frameBridge = new THREE.Mesh(
-    new THREE.BoxGeometry(0.045, 0.007, 0.006),
-    glassesFrameMat
-  );
-  frameBridge.position.set(0, 0.008, 0);
+  const frameBridge = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, 0.026, 8), glassesFrameMat);
+  frameBridge.rotation.z = Math.PI / 2;
   glassesGroup.add(frameBridge);
 
-  // Temple Arms extending to ears
-  const leftTemple = new THREE.Mesh(
-    new THREE.BoxGeometry(0.006, 0.006, 0.13),
-    glassesFrameMat
-  );
-  leftTemple.position.set(-0.088, 0, -0.065);
+  // Temple arms extending cleanly to ears
+  const leftTemple = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.004, 0.13), glassesFrameMat);
+  leftTemple.position.set(-0.075, 0, -0.065);
   glassesGroup.add(leftTemple);
 
-  const rightTemple = new THREE.Mesh(
-    new THREE.BoxGeometry(0.006, 0.006, 0.13),
-    glassesFrameMat
-  );
-  rightTemple.position.set(0.088, 0, -0.065);
+  const rightTemple = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.004, 0.13), glassesFrameMat);
+  rightTemple.position.set(0.075, 0, -0.065);
   glassesGroup.add(rightTemple);
 
   headGroup.add(glassesGroup);
   avatarGroup.add(headGroup);
 
-  // 5. Floating Glassmorphic Holographic Info Badge (1024x360 high-DPI)
+  // 5. Sleek 3D Holographic Nameplate (1024x320)
+  // Positioned directly above the head at y = 2.02, width = 1.25m, height = 0.39m
+  // Never intersects with the presentation screen!
   const badgeCanvas = document.createElement('canvas');
   badgeCanvas.width = 1024;
-  badgeCanvas.height = 360;
+  badgeCanvas.height = 320;
   const ctx = badgeCanvas.getContext('2d');
 
   function drawBadge(name, title, category, rating, exp) {
     if (!ctx) return;
-    ctx.clearRect(0, 0, 1024, 360);
+    ctx.clearRect(0, 0, 1024, 320);
 
-    // Glassmorphic dark card with rounded corners
+    // Translucent rounded card
     ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
     ctx.beginPath();
-    ctx.roundRect(16, 16, 992, 328, 28);
+    ctx.roundRect(14, 14, 996, 292, 24);
     ctx.fill();
 
-    // Subtle Restrained Cyan-Teal Border
+    // Restrained Cyan-Teal Border
     ctx.strokeStyle = '#0d9488';
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 4;
     ctx.stroke();
 
     // Top Status Pill (Verified Mentor)
     ctx.fillStyle = 'rgba(13, 148, 136, 0.25)';
     ctx.beginPath();
-    ctx.roundRect(48, 38, 220, 40, 20);
+    ctx.roundRect(40, 32, 210, 38, 19);
     ctx.fill();
     ctx.strokeStyle = '#14b8a6';
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = '#2dd4bf';
     ctx.textAlign = 'center';
-    ctx.fillText('✦ VERIFIED MENTOR', 158, 65);
+    ctx.fillText('✦ VERIFIED MENTOR', 145, 57);
 
-    // Rating & Experience Pill on Right
+    // Rating & Exp Pill on Right
     ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.beginPath();
-    ctx.roundRect(740, 38, 236, 40, 20);
+    ctx.roundRect(750, 32, 234, 38, 19);
     ctx.fill();
 
-    ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = '#fbbf24';
     ctx.textAlign = 'center';
-    ctx.fillText(`★ ${rating}  •  ${exp}`, 858, 65);
+    ctx.fillText(`★ ${rating}  •  ${exp}`, 867, 57);
 
     // Mentor Full Name
-    ctx.font = 'bold 54px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = 'bold 46px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'left';
-    ctx.fillText(name, 48, 148);
+    ctx.fillText(name, 40, 132);
 
     // Mentor Title & Category Subtitle
-    ctx.font = '500 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = '500 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = '#94a3b8';
-    ctx.fillText(`${title}  •  ${category}`, 48, 198);
+    ctx.fillText(`${title}  •  ${category}`, 40, 178);
 
     // Separator line
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(48, 232);
-    ctx.lineTo(976, 232);
+    ctx.moveTo(40, 208);
+    ctx.lineTo(984, 208);
     ctx.stroke();
 
     // Transparent honest representation disclosure
-    ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = '#cbd5e1';
-    ctx.fillText('Autonomous 3D Mentor Representation (Local)', 48, 282);
+    ctx.fillText('Autonomous 3D Mentor Representation (Local)', 40, 250);
 
-    ctx.font = '20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = '18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = '#64748b';
-    ctx.fillText('Interactive 3D mentorship session view — no fabricated audio or sync', 48, 314);
+    ctx.fillText('Interactive 3D mentorship session view — no fabricated audio or sync', 40, 280);
   }
 
   drawBadge(mentorName, mentorTitle, mentorCategory, mentorRating, mentorExp);
@@ -603,22 +497,22 @@ export function buildMentorAvatar(scene, mentorData = null) {
   badgeTexture.generateMipmaps = true;
 
   const badgeMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.68, 0.59),
+    new THREE.PlaneGeometry(1.25, 0.39),
     new THREE.MeshBasicMaterial({
       map: badgeTexture,
       transparent: true,
       side: THREE.DoubleSide,
       depthTest: true,
-      depthWrite: false,
+      depthWrite: false, // Prevents transparent sorting artifacts in WebXR
     })
   );
-  badgeMesh.position.set(0, 2.05, 0.12);
+  badgeMesh.position.set(0, 2.02, 0.10);
   avatarGroup.add(badgeMesh);
 
-  // Position avatar exactly at the mentor chair (x = 0.95, z = -2.1)
-  // facing toward student view camera
-  avatarGroup.position.set(0.95, 0, -2.1);
-  avatarGroup.rotation.y = -0.18;
+  // Position avatar seated at the mentor desk chair: x = 1.25, z = -2.1
+  // Placed with 1.2m clear corridor from whiteboard at x = -1.55
+  avatarGroup.position.set(1.25, 0, -2.1);
+  avatarGroup.rotation.y = -0.22; // Gently facing toward student seat
 
   scene.add(avatarGroup);
 
@@ -629,16 +523,16 @@ export function buildMentorAvatar(scene, mentorData = null) {
     update: (elapsedTime) => {
       // Subtle rhythmic breathing sine wave
       const breathe = Math.sin(elapsedTime * 1.8) * 0.012;
-      torsoGroup.scale.set(1 + breathe * 0.4, 1 + breathe, 1 + breathe * 0.4);
+      torsoGroup.scale.set(1 + breathe * 0.35, 1 + breathe, 1 + breathe * 0.35);
 
-      // Subtle natural micro head motion (gazing between student and board)
-      const headTilt = Math.sin(elapsedTime * 0.8) * 0.03 - 0.04;
-      const headNod = Math.cos(elapsedTime * 1.2) * 0.015;
+      // Subtle natural conversational head motion
+      const headTilt = Math.sin(elapsedTime * 0.8) * 0.025 - 0.03;
+      const headNod = Math.cos(elapsedTime * 1.2) * 0.012;
       headGroup.rotation.y = headTilt;
       headGroup.rotation.x = headNod;
 
       // Gentle badge hover
-      badgeMesh.position.y = 2.05 + Math.sin(elapsedTime * 2.0) * 0.02;
+      badgeMesh.position.y = 2.02 + Math.sin(elapsedTime * 2.0) * 0.015;
     },
     updateMentorData: (newMentor) => {
       if (!newMentor) return;

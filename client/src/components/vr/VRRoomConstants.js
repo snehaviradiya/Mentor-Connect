@@ -23,20 +23,20 @@ export const BOUNDARY_LIMITS = {
 export const CAMERA_PRESETS = {
   DEFAULT: {
     label: 'Student View',
-    position: [0.15, 1.48, 2.2],
-    lookAt: [-0.65, 1.55, -2.3],
+    position: [0.10, 1.48, 2.2],
+    lookAt: [-0.60, 1.55, -2.3],
     description: 'First-person perspective seated at conference table facing presentation board and mentor',
   },
   WHITEBOARD: {
     label: 'Presentation View',
-    position: [-1.55, 1.95, 0.5],
+    position: [-1.55, 1.95, 0.45],
     lookAt: [-1.55, 1.95, -2.4],
     description: 'Optimized straight-on view for reading presentation slides and technical diagrams',
   },
   MENTOR_FOCUS: {
     label: 'Mentor View',
-    position: [0.95, 1.48, 0.1],
-    lookAt: [0.95, 1.42, -2.1],
+    position: [1.25, 1.48, 0.1],
+    lookAt: [1.25, 1.42, -2.1],
     description: 'One-on-one direct discussion orientation facing the mentor desk',
   },
   ROOM_OVERVIEW: {

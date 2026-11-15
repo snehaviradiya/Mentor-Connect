@@ -184,9 +184,9 @@ export function AppContent({ initialLoading = null, initialMentors = import.meta
     setActiveTab(tab);
     if (tab !== 'vr-room') {
       setSelectedMentorId(null);
+      setWorkspaceSession(null);
     }
     setQuickBookingMentor(null);
-    setWorkspaceSession(null);
   };
 
   const scrollToMentors = () => {
@@ -390,8 +390,9 @@ export function AppContent({ initialLoading = null, initialMentors = import.meta
             }
           >
             <VRMentorshipRoom
-              mentor={selectedMentor}
-              onExit={() => handleTabChange('discover')}
+              mentor={selectedMentor || workspaceSession?.mentor || null}
+              session={workspaceSession}
+              onExit={() => handleTabChange(workspaceSession ? 'workspace' : 'discover')}
             />
           </Suspense>
         ) : activeTab === 'resources' ? (

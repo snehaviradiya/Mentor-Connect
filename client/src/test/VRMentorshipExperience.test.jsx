@@ -141,6 +141,91 @@ describe('VRDesktopOverlay HUD component', () => {
     render(<VRDesktopOverlay {...defaultProps} />);
     expect(screen.getByText('Local Simulation')).toBeInTheDocument();
   });
+
+  it('navigates directly to specific slides via jump pills', () => {
+    const handleGoToSlide = vi.fn();
+    render(<VRDesktopOverlay {...defaultProps} onGoToSlide={handleGoToSlide} />);
+
+    const pill3 = screen.getByRole('button', { name: 'Jump to slide 3' });
+    expect(pill3).toBeInTheDocument();
+    fireEvent.click(pill3);
+    expect(handleGoToSlide).toHaveBeenCalledWith(2);
+  });
+
+  it('toggles real-time communication controls for mic, camera, screen share, and raise hand', async () => {
+    render(<VRDesktopOverlay {...defaultProps} />);
+
+    // Mic
+    const micBtn = screen.getByRole('button', { name: /microphone/i });
+    expect(micBtn).toBeInTheDocument();
+    fireEvent.click(micBtn);
+
+    // Camera
+    const camBtn = screen.getByRole('button', { name: /video|camera/i });
+    expect(camBtn).toBeInTheDocument();
+    fireEvent.click(camBtn);
+
+    // Screen Share
+    const shareBtn = screen.getByRole('button', { name: /share screen/i });
+    expect(shareBtn).toBeInTheDocument();
+    fireEvent.click(shareBtn);
+
+    // Raise hand
+    const handBtn = screen.getByRole('button', { name: /raise hand/i });
+    expect(handBtn).toBeInTheDocument();
+    fireEvent.click(handBtn);
+
+    expect(screen.getByText(/Hand Raised — Mentor has been notified/i)).toBeInTheDocument();
+  });
+
+  it('opens glassmorphic side drawer for live chat and agenda notes', () => {
+    render(<VRDesktopOverlay {...defaultProps} />);
+
+    const chatToggle = screen.getByRole('button', { name: /toggle session chat and notes/i });
+    fireEvent.click(chatToggle);
+
+    // Side panel open with chat
+    expect(screen.getByRole('complementary', { name: /Live Session Chat and Agenda Notes/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Type a question or message/i)).toBeInTheDocument();
+
+    // Type and send chat message
+    const input = screen.getByPlaceholderText(/Type a question or message/i);
+    fireEvent.change(input, { target: { value: 'Can you explain the Three.js WebXR pipeline?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+
+    expect(screen.getByText('Can you explain the Three.js WebXR pipeline?')).toBeInTheDocument();
+
+    // Switch to Agenda & Notes tab
+    const notesTab = screen.getByRole('tab', { name: /Agenda & Notes/i });
+    fireEvent.click(notesTab);
+
+    expect(screen.getByText(/Session Agenda Checklist/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Record architecture notes/i)).toBeInTheDocument();
+
+    // Type notes and verify persistence
+    const notesArea = screen.getByPlaceholderText(/Record architecture notes/i);
+    fireEvent.change(notesArea, { target: { value: 'Remember to verify 60fps budget.' } });
+    expect(notesArea.value).toBe('Remember to verify 60fps budget.');
+  });
+
+  it('displays session details and status badge when a booked session is passed', () => {
+    const sampleSession = {
+      id: 'sess-8891',
+      date: '2026-11-20',
+      timeSlot: '02:00 PM',
+      sessionTopic: 'Distributed Systems & Capstone Defense',
+      status: 'CONFIRMED',
+      mentor: {
+        name: 'Dr. Sarah Chen',
+        category: 'Cloud Architecture',
+      },
+    };
+
+    render(<VRDesktopOverlay {...defaultProps} session={sampleSession} />);
+
+    expect(screen.getByText('CONFIRMED')).toBeInTheDocument();
+    expect(screen.getByText(/Distributed Systems & Capstone Defense/i)).toBeInTheDocument();
+  });
 });
 
 describe('MentorProfile VR Entry Point', () => {

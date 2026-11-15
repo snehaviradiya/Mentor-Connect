@@ -64,16 +64,19 @@ export function buildWhiteboard(scene, customSlides = null) {
     ctx.fillStyle = headerGrad;
     ctx.fillRect(0, 0, 1920, 150);
 
-    // Category / Badge Pill
+    // Category / Badge Pill (dynamic width with padding)
+    ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const badgeText = (slide.badge || 'MENTORSHIP').toUpperCase();
+    const badgeMetrics = ctx.measureText(badgeText);
+    const badgeWidth = Math.max(220, Math.min(badgeMetrics.width + 56, 600));
     ctx.fillStyle = '#0d9488';
     ctx.beginPath();
-    ctx.roundRect(48, 38, 280, 68, 14);
+    ctx.roundRect(48, 38, badgeWidth, 68, 14);
     ctx.fill();
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(slide.badge || 'MENTORSHIP', 188, 82);
+    ctx.fillText(badgeText, 48 + badgeWidth / 2, 82);
 
     // Slide Counter Pill
     ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
