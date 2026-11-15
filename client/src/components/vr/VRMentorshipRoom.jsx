@@ -168,8 +168,8 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
     const container = containerRef.current;
     if (!canvas || !container) return undefined;
 
-    const width = container.clientWidth || window.innerWidth;
-    const height = container.clientHeight || window.innerHeight;
+    const width = Math.max(container.clientWidth || window.innerWidth || 1280, 320);
+    const height = Math.max(container.clientHeight || window.innerHeight || 720, 480);
 
     // 1. Renderer
     let renderer;
@@ -181,6 +181,9 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
       });
       renderer.setSize(width, height);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.08;
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       renderer.xr.enabled = true; // Enables WebXR pipeline
@@ -194,7 +197,7 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x090d16);
 
-    const camera = new THREE.PerspectiveCamera(72, width / height, 0.1, 40);
+    const camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 40);
     camera.position.set(...CAMERA_PRESETS.DEFAULT.position);
     camera.lookAt(new THREE.Vector3(...CAMERA_PRESETS.DEFAULT.lookAt));
 
@@ -257,15 +260,23 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
       renderer.render(scene, camera);
     });
 
-    // 7. Window resize handling
+    // 7. Window and container resize handling
     const handleResize = () => {
       if (!container) return;
-      const w = container.clientWidth || window.innerWidth;
-      const h = container.clientHeight || window.innerHeight;
+      const w = Math.max(container.clientWidth || window.innerWidth || 1280, 320);
+      const h = Math.max(container.clientHeight || window.innerHeight || 720, 480);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
     };
+
+    let resizeObserver;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        handleResize();
+      });
+      resizeObserver.observe(container);
+    }
     window.addEventListener('resize', handleResize);
 
     // 8. Keyboard navigation shortcuts
@@ -284,6 +295,9 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
 
     // Cleanup
     return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('keydown', handleKeyDown);
       unsubscribeXR();

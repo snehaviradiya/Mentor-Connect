@@ -1,7 +1,8 @@
 /**
  * Mentor Connect VR Mentorship Room - Core Constants and Configuration
  * 
- * Design follows the Milestone B/C deep navy, warm neutral, and restrained teal palette.
+ * High-end architectural studio design following Milestone B/C:
+ * Deep Navy, Warm Neutral, Restrained Teal, and Rich Walnut.
  */
 
 export const ROOM_DIMENSIONS = {
@@ -21,28 +22,28 @@ export const BOUNDARY_LIMITS = {
 
 export const CAMERA_PRESETS = {
   DEFAULT: {
-    label: 'Student Seat',
-    position: [0, 1.45, 1.8],
-    lookAt: [0, 1.45, -2.5],
-    description: 'First-person view seated across from the mentor at the central table',
+    label: 'Student View',
+    position: [0, 1.48, 2.1],
+    lookAt: [-0.35, 1.48, -2.2],
+    description: 'First-person perspective seated at conference table facing mentor and presentation display',
   },
   WHITEBOARD: {
-    label: 'Whiteboard View',
-    position: [-2.2, 1.6, 0.4],
-    lookAt: [-4.2, 1.8, -1.8],
-    description: 'Optimized close-up angle for reading presentations and code slides',
+    label: 'Presentation View',
+    position: [-1.45, 1.85, 0.4],
+    lookAt: [-1.45, 1.85, -2.4],
+    description: 'Optimized straight-on view for reading presentation slides and technical diagrams',
   },
   MENTOR_FOCUS: {
-    label: 'Mentor Focus',
-    position: [0.6, 1.4, 0.8],
-    lookAt: [0, 1.4, -2.4],
+    label: 'Mentor View',
+    position: [0.95, 1.52, 0.2],
+    lookAt: [0.95, 1.52, -2.2],
     description: 'One-on-one direct discussion orientation facing the mentor desk',
   },
   ROOM_OVERVIEW: {
     label: 'Room Overview',
-    position: [4.8, 2.6, 4.4],
-    lookAt: [-0.5, 1.2, -1.0],
-    description: 'Elevated perspective showing the complete architectural layout',
+    position: [3.8, 2.8, 3.6],
+    lookAt: [-0.5, 1.3, -1.2],
+    description: 'Elevated perspective showing the complete architectural studio layout',
   },
 };
 
@@ -53,14 +54,16 @@ export const THEME_COLORS = {
   tealAccent: 0x0d9488,
   tealHighlight: 0x14b8a6,
   amberAccent: 0xd97706,
-  wallWarm: 0xf1f5f9,
-  wallAccent: 0xe2e8f0,
-  floorSlate: 0x1e2229,
+  wallWarm: 0xf8fafc,
+  wallSlate: 0xe2e8f0,
+  woodWalnut: 0x1c1917,
+  woodOakDark: 0x272422,
+  floorWood: 0x18181b,
   ceilingWhite: 0xf8fafc,
-  tableWood: 0x27272a,
-  chairFabric: 0x0f172a,
-  whiteboardBg: 0xffffff,
-  whiteboardFrame: 0x090d16,
+  marbleGraphite: 0x1e2229,
+  metalTitanium: 0x64748b,
+  metalBronze: 0x475569,
+  screenFrame: 0x090d16,
 };
 
 export const DEFAULT_SLIDES = [
@@ -68,7 +71,7 @@ export const DEFAULT_SLIDES = [
     id: 1,
     badge: 'SESSION AGENDA',
     title: 'Capstone Architecture & Mentorship Strategy',
-    subtitle: 'Mentor Connect Immersive Workspace',
+    subtitle: 'Mentor Connect Immersive Studio',
     bullets: [
       '1. Reviewing full-stack web and WebXR capabilities',
       '2. Inspecting modular React architecture and service boundaries',
@@ -96,7 +99,7 @@ export const DEFAULT_SLIDES = [
     title: 'Engineering Best Practices & Testing',
     subtitle: 'Zero runtime exceptions, fully verified releases',
     bullets: [
-      '✓ 100% passing automated Vitest suite across 15+ modules',
+      '✓ 100% passing automated Vitest suite across 16+ modules',
       '✓ Oxlint zero error conformance with clean code formatting',
       '✓ Native boundary checking preventing camera out-of-bounds clipping',
       '✓ Memory leak prevention via recursive geometry and texture disposal',

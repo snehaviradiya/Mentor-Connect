@@ -120,7 +120,7 @@ describe('VRDesktopOverlay HUD component', () => {
   it('triggers camera preset selection and reset view', () => {
     render(<VRDesktopOverlay {...defaultProps} />);
 
-    const whiteboardPresetBtn = screen.getByRole('button', { name: 'Whiteboard View' });
+    const whiteboardPresetBtn = screen.getByRole('button', { name: /Presentation View|Whiteboard View/i });
     fireEvent.click(whiteboardPresetBtn);
     expect(defaultProps.onSelectPreset).toHaveBeenCalledWith('WHITEBOARD');
 
