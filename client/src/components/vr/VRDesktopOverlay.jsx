@@ -141,7 +141,7 @@ export default function VRDesktopOverlay({
                 <span>Look around</span>
               </div>
               <div className="vr-cheat-row">
-                <kbd>Click Screen / Buttons</kbd>
+                <kbd>Space</kbd> / <kbd>HUD</kbd>
                 <span>Slide Next / Prev</span>
               </div>
               <div className="vr-cheat-row">

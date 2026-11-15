@@ -23,26 +23,26 @@ export const BOUNDARY_LIMITS = {
 export const CAMERA_PRESETS = {
   DEFAULT: {
     label: 'Student View',
-    position: [0, 1.48, 2.1],
-    lookAt: [-0.35, 1.48, -2.2],
-    description: 'First-person perspective seated at conference table facing mentor and presentation display',
+    position: [0.15, 1.48, 2.2],
+    lookAt: [-0.65, 1.55, -2.3],
+    description: 'First-person perspective seated at conference table facing presentation board and mentor',
   },
   WHITEBOARD: {
     label: 'Presentation View',
-    position: [-1.45, 1.85, 0.4],
-    lookAt: [-1.45, 1.85, -2.4],
+    position: [-1.55, 1.95, 0.5],
+    lookAt: [-1.55, 1.95, -2.4],
     description: 'Optimized straight-on view for reading presentation slides and technical diagrams',
   },
   MENTOR_FOCUS: {
     label: 'Mentor View',
-    position: [0.95, 1.52, 0.2],
-    lookAt: [0.95, 1.52, -2.2],
+    position: [0.95, 1.48, 0.1],
+    lookAt: [0.95, 1.42, -2.1],
     description: 'One-on-one direct discussion orientation facing the mentor desk',
   },
   ROOM_OVERVIEW: {
     label: 'Room Overview',
-    position: [3.8, 2.8, 3.6],
-    lookAt: [-0.5, 1.3, -1.2],
+    position: [3.6, 2.8, 3.4],
+    lookAt: [-0.6, 1.3, -1.2],
     description: 'Elevated perspective showing the complete architectural studio layout',
   },
 };

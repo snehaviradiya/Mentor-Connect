@@ -26,6 +26,15 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
   const [isVRSessionActive, setIsVRSessionActive] = useState(false);
   const [webglError, setWebglError] = useState(false);
 
+  // Prevent underlying website scrollbars and margins while VR room is open
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
   // References to active 3D subsystems for interaction & cleanup
   const systemsRef = useRef({
     renderer: null,
@@ -120,7 +129,6 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
           const wb = systemsRef.current.whiteboard;
           if (wb) {
             const intersects = raycaster.intersectObjects([
-              wb.screenMesh,
               wb.prevBtnMesh,
               wb.nextBtnMesh,
             ]);
@@ -150,7 +158,7 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
     const raycaster = systemsRef.current.raycaster;
     raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
 
-    const interactiveObjects = [wb.screenMesh, wb.prevBtnMesh, wb.nextBtnMesh];
+    const interactiveObjects = [wb.prevBtnMesh, wb.nextBtnMesh];
     const intersects = raycaster.intersectObjects(interactiveObjects, false);
 
     if (intersects.length > 0) {
@@ -183,7 +191,7 @@ export default function VRMentorshipRoom({ mentor = null, onExit }) {
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.08;
+      renderer.toneMappingExposure = 1.22;
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       renderer.xr.enabled = true; // Enables WebXR pipeline

@@ -506,43 +506,56 @@ export function buildMentorshipRoom(scene) {
   roomGroup.add(planterGroup);
 
   // 12. Lighting Setup (Cinematic Physically Based Lighting)
+  // Balanced natural hemisphere sky & floor bounce fill
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x1e293b, 1.15);
+  hemiLight.name = 'HemisphereLight';
+  roomGroup.add(hemiLight);
+
   // Warm natural ambient fill light
-  const ambientLight = new THREE.AmbientLight(0xfff7ed, 0.75);
+  const ambientLight = new THREE.AmbientLight(0xfff7ed, 0.65);
   ambientLight.name = 'AmbientLight';
   roomGroup.add(ambientLight);
 
   // Studio Key Directional Light
-  const mainDirLight = new THREE.DirectionalLight(0xfffdf5, 1.25);
+  const mainDirLight = new THREE.DirectionalLight(0xfffdf5, 1.4);
   mainDirLight.position.set(3.5, 4.0, 2.5);
   mainDirLight.castShadow = true;
   mainDirLight.shadow.mapSize.width = 2048;
   mainDirLight.shadow.mapSize.height = 2048;
   mainDirLight.shadow.camera.near = 0.5;
   mainDirLight.shadow.camera.far = 16;
-  mainDirLight.shadow.bias = -0.0004;
+  mainDirLight.shadow.radius = 2.5;
+  mainDirLight.shadow.bias = -0.0002;
   mainDirLight.name = 'MainDirLight';
   roomGroup.add(mainDirLight);
 
   // Dedicated High-CRI Presentation Spotlight (Pointing directly at the presentation board!)
-  const presSpotlight = new THREE.SpotLight(0xffffff, 1.5, 12, Math.PI / 4, 0.25);
+  const presSpotlight = new THREE.SpotLight(0xffffff, 2.2, 14, Math.PI / 3.8, 0.2);
   presSpotlight.position.set(-1.55, height - 0.2, 0.8);
   presSpotlight.target.position.set(-1.55, 1.95, -2.4);
   roomGroup.add(presSpotlight);
   roomGroup.add(presSpotlight.target);
 
+  // Dedicated Warm Key Spotlight on Mentor Avatar
+  const mentorSpotlight = new THREE.SpotLight(0xfff1e6, 2.0, 10, Math.PI / 4, 0.3);
+  mentorSpotlight.position.set(0.95, height - 0.3, -0.6);
+  mentorSpotlight.target.position.set(0.95, 1.35, -2.1);
+  roomGroup.add(mentorSpotlight);
+  roomGroup.add(mentorSpotlight.target);
+
   // Table Accent Spotlight
-  const tableSpot = new THREE.SpotLight(0xffeedd, 1.1, 10, Math.PI / 3.5, 0.3);
+  const tableSpot = new THREE.SpotLight(0xffeedd, 1.3, 10, Math.PI / 3.2, 0.32);
   tableSpot.position.set(0, height - 0.2, -0.6);
   tableSpot.target = tabletopMesh;
   roomGroup.add(tableSpot);
 
   // Warm wall wash accent lighting on fluted slats
-  const wallWashLight = new THREE.PointLight(0xffedd5, 1.2, 8);
+  const wallWashLight = new THREE.PointLight(0xffedd5, 1.3, 9);
   wallWashLight.position.set(0.6, 2.2, -depth / 2 + 0.8);
   roomGroup.add(wallWashLight);
 
   // Subtle teal architectural back-glow
-  const tealAccentLight = new THREE.PointLight(THEME_COLORS.tealAccent, 1.4, 7);
+  const tealAccentLight = new THREE.PointLight(THEME_COLORS.tealAccent, 1.5, 8);
   tealAccentLight.position.set(-3.0, 1.4, -depth / 2 + 0.6);
   roomGroup.add(tealAccentLight);
 

@@ -608,6 +608,8 @@ export function buildMentorAvatar(scene, mentorData = null) {
       map: badgeTexture,
       transparent: true,
       side: THREE.DoubleSide,
+      depthTest: true,
+      depthWrite: false,
     })
   );
   badgeMesh.position.set(0, 2.05, 0.12);
