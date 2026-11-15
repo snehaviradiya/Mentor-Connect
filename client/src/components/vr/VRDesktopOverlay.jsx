@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { CAMERA_PRESETS } from './VRRoomConstants.js';
-import { fetchSessionMessages, sendSessionMessage } from '../../services/api.js';
+import { fetchSessionMessages, sendSessionMessage, fetchMeetingInfo } from '../../services/api.js';
 
 /**
  * Desktop & Mobile 2D HUD overlay superimposed over the 3D/VR Canvas.
@@ -24,6 +24,8 @@ export default function VRDesktopOverlay({
   onExit,
   mentor = null,
   session = null,
+  onScreenShareStart,
+  onScreenShareStop,
 }) {
   const [showCheatsheet, setShowCheatsheet] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -34,6 +36,7 @@ export default function VRDesktopOverlay({
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [noticeMessage, setNoticeMessage] = useState(null);
+  const [meetingInfo, setMeetingInfo] = useState(null);
 
   // Side panel state (Chat & Notes)
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -57,10 +60,16 @@ export default function VRDesktopOverlay({
       content: `Welcome to the 3D Mentorship Room! I'm ready to review your capstone architecture and engineering milestones.`,
       time: '10:00 AM',
       isUser: false,
+      status: 'sent',
     },
   ]);
   const [messageInput, setMessageInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+
+  // Authenticated Token
+  const token = typeof window !== 'undefined'
+    ? window.sessionStorage?.getItem('mentor_connect_token')
+    : null;
 
   // Agenda & Notes state
   const notesStorageKey = `vr_session_notes_${session?.id || 'demo'}`;
@@ -90,8 +99,36 @@ export default function VRDesktopOverlay({
     }
   };
 
+  // Helper for human-readable device error descriptions
+  const getMediaErrorMessage = (err, deviceType) => {
+    if (!err) return `${deviceType} access failed.`;
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      return `${deviceType} permission was denied. Please grant access in your browser settings.`;
+    }
+    if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      return `No ${deviceType.toLowerCase()} found on this device.`;
+    }
+    if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+      return `${deviceType} is currently in use by another application or meeting.`;
+    }
+    if (err.name === 'OverconstrainedError') {
+      return `${deviceType} does not satisfy requested hardware constraints.`;
+    }
+    return `${deviceType} error: ${err.message || 'Unable to access device'}`;
+  };
+
   // Toggle Microphone
   const toggleMic = useCallback(async () => {
+    // Check if an external Jitsi meeting API instance is registered
+    if (typeof window !== 'undefined' && window.__jitsiMeetingApi?.executeCommand) {
+      try {
+        window.__jitsiMeetingApi.executeCommand('toggleAudio');
+        return;
+      } catch {
+        // Fallback to native WebRTC getUserMedia
+      }
+    }
+
     if (isMicOn) {
       if (micStreamRef.current) {
         micStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -99,24 +136,48 @@ export default function VRDesktopOverlay({
       }
       setIsMicOn(false);
     } else {
+      // Stop any prior tracks to prevent duplicate streams
+      if (micStreamRef.current) {
+        micStreamRef.current.getTracks().forEach((track) => track.stop());
+        micStreamRef.current = null;
+      }
+
       try {
         if (navigator?.mediaDevices?.getUserMedia) {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           micStreamRef.current = stream;
           setIsMicOn(true);
+
+          const track = stream.getAudioTracks()[0];
+          if (track) {
+            track.onended = () => {
+              micStreamRef.current = null;
+              setIsMicOn(false);
+            };
+          }
         } else {
           setIsMicOn(true);
         }
       } catch (err) {
-        console.warn('[VRDesktopOverlay] Microphone access unavailable:', err.message);
+        console.warn('[VRDesktopOverlay] Microphone access unavailable:', err.name || err.message);
         setIsMicOn(false);
-        setNoticeMessage('Microphone access was denied or is not supported in this environment.');
+        setNoticeMessage(getMediaErrorMessage(err, 'Microphone'));
       }
     }
   }, [isMicOn]);
 
   // Toggle Camera
   const toggleVideo = useCallback(async () => {
+    // Check if an external Jitsi meeting API instance is registered
+    if (typeof window !== 'undefined' && window.__jitsiMeetingApi?.executeCommand) {
+      try {
+        window.__jitsiMeetingApi.executeCommand('toggleVideo');
+        return;
+      } catch {
+        // Fallback to native WebRTC getUserMedia
+      }
+    }
+
     if (isVideoOn) {
       if (videoStreamRef.current) {
         videoStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -124,6 +185,12 @@ export default function VRDesktopOverlay({
       }
       setIsVideoOn(false);
     } else {
+      // Stop any prior tracks to prevent duplicate streams
+      if (videoStreamRef.current) {
+        videoStreamRef.current.getTracks().forEach((track) => track.stop());
+        videoStreamRef.current = null;
+      }
+
       try {
         if (navigator?.mediaDevices?.getUserMedia) {
           const stream = await navigator.mediaDevices.getUserMedia({
@@ -131,13 +198,21 @@ export default function VRDesktopOverlay({
           });
           videoStreamRef.current = stream;
           setIsVideoOn(true);
+
+          const track = stream.getVideoTracks()[0];
+          if (track) {
+            track.onended = () => {
+              videoStreamRef.current = null;
+              setIsVideoOn(false);
+            };
+          }
         } else {
           setIsVideoOn(true);
         }
       } catch (err) {
-        console.warn('[VRDesktopOverlay] Camera access unavailable:', err.message);
+        console.warn('[VRDesktopOverlay] Camera access unavailable:', err.name || err.message);
         setIsVideoOn(false);
-        setNoticeMessage('Camera access was denied or is not supported in this environment.');
+        setNoticeMessage(getMediaErrorMessage(err, 'Camera'));
       }
     }
   }, [isVideoOn]);
@@ -150,33 +225,66 @@ export default function VRDesktopOverlay({
         screenStreamRef.current = null;
       }
       setIsScreenSharing(false);
+      onScreenShareStop?.();
     } else {
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((track) => track.stop());
+        screenStreamRef.current = null;
+      }
+
       try {
         if (navigator?.mediaDevices?.getDisplayMedia) {
           const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
           screenStreamRef.current = stream;
           setIsScreenSharing(true);
+          onScreenShareStart?.(stream);
+
           const track = stream.getVideoTracks()[0];
           if (track) {
+            // Handles browser native "Stop sharing" button
             track.onended = () => {
-              screenStreamRef.current = null;
+              if (screenStreamRef.current) {
+                screenStreamRef.current.getTracks().forEach((t) => t.stop());
+                screenStreamRef.current = null;
+              }
               setIsScreenSharing(false);
+              onScreenShareStop?.();
             };
           }
         } else {
           setIsScreenSharing(true);
         }
       } catch (err) {
-        console.warn('[VRDesktopOverlay] Screen share error or cancelled:', err.message);
+        console.warn('[VRDesktopOverlay] Screen share error or cancelled:', err.name || err.message);
         setIsScreenSharing(false);
+        onScreenShareStop?.();
+        if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+          setNoticeMessage(getMediaErrorMessage(err, 'Screen share'));
+        }
       }
     }
-  }, [isScreenSharing]);
+  }, [isScreenSharing, onScreenShareStart, onScreenShareStop]);
 
-  // Toggle Hand Raise
+  // Toggle Hand Raise (truthful local view)
   const toggleHandRaise = useCallback(() => {
-    setIsHandRaised((prev) => !prev);
-  }, []);
+    setIsHandRaised((prev) => {
+      const next = !prev;
+      if (next) {
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const autoNote = `\n[${timeStr}] ✋ Question pending (Hand raised in 3D workspace)`;
+        setSessionNotes((current) => {
+          const updated = current + autoNote;
+          try {
+            localStorage.setItem(notesStorageKey, updated);
+          } catch {
+            // ignore
+          }
+          return updated;
+        });
+      }
+      return next;
+    });
+  }, [notesStorageKey]);
 
   // Toggle Side Panel
   const togglePanel = useCallback(() => {
@@ -207,8 +315,9 @@ export default function VRDesktopOverlay({
       if (micStreamRef.current) micStreamRef.current.getTracks().forEach((t) => t.stop());
       if (videoStreamRef.current) videoStreamRef.current.getTracks().forEach((t) => t.stop());
       if (screenStreamRef.current) screenStreamRef.current.getTracks().forEach((t) => t.stop());
+      onScreenShareStop?.();
     };
-  }, []);
+  }, [onScreenShareStop]);
 
   // Notice auto-dismiss timer
   useEffect(() => {
@@ -217,64 +326,188 @@ export default function VRDesktopOverlay({
     return () => clearTimeout(timer);
   }, [noticeMessage]);
 
-  // Fetch messages if a real session is provided
+  // Fetch meeting info if real session is linked
   useEffect(() => {
     let isSubscribed = true;
     if (session?.id) {
-      fetchSessionMessages(session.id)
+      fetchMeetingInfo(session.id, token)
         .then((res) => {
           if (!isSubscribed) return;
-          const apiMsgs = res?.data?.messages;
-          if (Array.isArray(apiMsgs) && apiMsgs.length > 0) {
-            setMessages(
-              apiMsgs.map((m) => ({
-                id: m.id,
-                sender: m.sender?.name || (m.senderRole === 'STUDENT' ? 'You' : mentorName),
-                content: m.content,
-                time: new Date(m.createdAt || Date.now()).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }),
-                isUser: m.senderRole === 'STUDENT',
-              }))
-            );
+          if (res?.data?.meeting) {
+            setMeetingInfo(res.data.meeting);
           }
         })
         .catch(() => {
-          // Keep local fallback message
+          // Graceful fallback for mock or offline session
         });
     }
     return () => {
       isSubscribed = false;
     };
-  }, [session?.id, mentorName]);
+  }, [session?.id, token]);
 
-  // Send message handler
+  // Fetch authenticated session messages & maintain periodic polling
+  useEffect(() => {
+    let isSubscribed = true;
+
+    async function loadMessages() {
+      if (!session?.id) return;
+      try {
+        const res = await fetchSessionMessages(session.id, token);
+        if (!isSubscribed) return;
+        const apiMsgs = res?.data?.messages;
+        if (Array.isArray(apiMsgs) && apiMsgs.length > 0) {
+          setMessages((prev) => {
+            const formatted = apiMsgs.map((m) => ({
+              id: m.id,
+              sender: m.senderName || m.sender?.name || (m.senderRole === 'STUDENT' ? 'You' : mentorName),
+              content: m.content,
+              time: new Date(m.createdAt || Date.now()).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+              isUser: m.senderRole === 'STUDENT',
+              status: 'sent',
+            }));
+
+            // Alert user to unread message from mentor if drawer is closed
+            const hasNewRemote = formatted.some(
+              (newM) => !newM.isUser && !prev.some((p) => p.id === newM.id)
+            );
+            if (hasNewRemote) {
+              setUnreadChat(true);
+            }
+            return formatted;
+          });
+        }
+      } catch {
+        // Retain existing messages gracefully on temporary network drops
+      }
+    }
+
+    if (session?.id) {
+      loadMessages();
+      const interval = setInterval(loadMessages, 4000);
+      return () => {
+        isSubscribed = false;
+        clearInterval(interval);
+      };
+    }
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [session?.id, mentorName, token]);
+
+  // Send message handler with optimistic update and rollback on failure
   const handleSendMessage = async (e) => {
     e?.preventDefault();
     const text = messageInput.trim();
     if (!text || isSending) return;
 
+    const tempId = `temp-${Date.now()}`;
     const newMsg = {
-      id: `local-${Date.now()}`,
+      id: tempId,
       sender: 'You',
       content: text,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isUser: true,
+      status: session?.id ? 'sending' : 'sent',
     };
+
     setMessages((prev) => [...prev, newMsg]);
     setMessageInput('');
 
     if (session?.id) {
       setIsSending(true);
       try {
-        await sendSessionMessage(session.id, text);
+        const res = await sendSessionMessage(session.id, text, 'TEXT', token);
+        if (res?.data?.message) {
+          const sMsg = res.data.message;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === tempId
+                ? {
+                    id: sMsg.id,
+                    sender: sMsg.senderName || 'You',
+                    content: sMsg.content,
+                    time: new Date(sMsg.createdAt || Date.now()).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }),
+                    isUser: true,
+                    status: 'sent',
+                  }
+                : m
+            )
+          );
+        } else {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === tempId ? { ...m, status: 'sent' } : m))
+          );
+        }
       } catch (err) {
-        console.warn('[VRDesktopOverlay] Message dispatch fallback to local:', err.message);
+        console.warn('[VRDesktopOverlay] Message dispatch error:', err.message);
+        // Do NOT leave as successful: mark failed with clear status
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId
+              ? {
+                  ...m,
+                  status: 'failed',
+                  error: err.message || 'Delivery failed',
+                }
+              : m
+          )
+        );
+        setNoticeMessage(
+          err.status === 401 || err.status === 403
+            ? 'Unable to send message: Session unauthorized or expired authentication token.'
+            : 'Message delivery failed. Please check your connection or retry.'
+        );
       } finally {
         setIsSending(false);
       }
     }
+  };
+
+  const handleRetryMessage = async (failedMsg) => {
+    if (!session?.id || !failedMsg) return;
+    setMessages((prev) =>
+      prev.map((m) => (m.id === failedMsg.id ? { ...m, status: 'sending' } : m))
+    );
+    try {
+      const res = await sendSessionMessage(session.id, failedMsg.content, 'TEXT', token);
+      if (res?.data?.message) {
+        const sMsg = res.data.message;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === failedMsg.id
+              ? {
+                  id: sMsg.id,
+                  sender: sMsg.senderName || 'You',
+                  content: sMsg.content,
+                  time: new Date(sMsg.createdAt || Date.now()).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }),
+                  isUser: true,
+                  status: 'sent',
+                }
+              : m
+          )
+        );
+      }
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === failedMsg.id ? { ...m, status: 'failed' } : m))
+      );
+      setNoticeMessage('Retry failed. Please check network connection.');
+    }
+  };
+
+  const handleDismissFailedMessage = (msgId) => {
+    setMessages((prev) => prev.filter((m) => m.id !== msgId));
   };
 
   // Notes change handler
@@ -309,14 +542,25 @@ export default function VRDesktopOverlay({
                   {session.status}
                 </span>
               ) : (
-                <span className="vr-session-status-badge live">
-                  LIVE WORKSPACE
+                <span className="vr-session-status-badge local">
+                  LOCAL 3D SIMULATION
                 </span>
+              )}
+              {meetingInfo?.meetingUrl && meetingInfo?.canJoin !== false && (
+                <a
+                  href={meetingInfo.meetingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="vr-hud-meeting-link"
+                  title="Open synchronized Jitsi video call in new window"
+                >
+                  🎥 Jitsi Call
+                </a>
               )}
             </div>
             <span className="vr-hud-subtitle">
               {session
-                ? `${session.sessionTopic || 'Mentorship Session'} • ${mentorName}`
+                ? `${session.sessionTopic || session.topic || 'Mentorship Session'} • ${mentorName}`
                 : mentor
                 ? `${mentor.name} • ${mentor.category}`
                 : 'Autonomous Mentorship Workspace'}
@@ -415,7 +659,7 @@ export default function VRDesktopOverlay({
         {isHandRaised && (
           <div className="vr-hand-raised-banner" role="status">
             <span className="vr-hand-icon">✋</span>
-            <span>Hand Raised — Mentor has been notified</span>
+            <span>Hand Raised (Local View) — Remote mentor notification requires backend real-time event support</span>
             <button
               type="button"
               className="vr-hand-dismiss-btn"
@@ -430,7 +674,7 @@ export default function VRDesktopOverlay({
         {isScreenSharing && (
           <div className="vr-screen-share-banner" role="status">
             <span className="vr-screen-share-pulse" />
-            <span>Sharing Screen</span>
+            <span>Sharing Screen — Projected to 3D presentation board</span>
             <button
               type="button"
               className="vr-stop-share-btn"
@@ -626,17 +870,46 @@ export default function VRDesktopOverlay({
 
           {panelTab === 'chat' ? (
             <div className="vr-chat-view">
+              {!session?.id && (
+                <div className="vr-chat-unauthenticated-banner" role="status">
+                  <span className="vr-chat-banner-icon" aria-hidden="true">ℹ️</span>
+                  <span>Local 3D Preview: Live backend chat and synchronized meeting features are active during scheduled sessions.</span>
+                </div>
+              )}
+
               <div className="vr-chat-messages" role="log" aria-label="Session messages">
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
-                    className={`vr-chat-message-row${msg.isUser ? ' user' : ' mentor'}`}
+                    className={`vr-chat-message-row${msg.isUser ? ' user' : ' mentor'}${msg.status === 'failed' ? ' failed' : ''}`}
                   >
                     <div className="vr-msg-meta">
                       <span className="vr-msg-author">{msg.sender}</span>
                       <span className="vr-msg-time">{msg.time}</span>
                     </div>
                     <div className="vr-msg-bubble">{msg.content}</div>
+                    {msg.status === 'sending' && (
+                      <span className="vr-msg-status-text">Sending...</span>
+                    )}
+                    {msg.status === 'failed' && (
+                      <div className="vr-msg-failed-row">
+                        <span className="vr-msg-failed-label">⚠️ Not delivered</span>
+                        <button
+                          type="button"
+                          className="vr-msg-retry-btn"
+                          onClick={() => handleRetryMessage(msg)}
+                        >
+                          Retry
+                        </button>
+                        <button
+                          type="button"
+                          className="vr-msg-dismiss-btn"
+                          onClick={() => handleDismissFailedMessage(msg.id)}
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <div ref={chatEndRef} />
@@ -657,7 +930,7 @@ export default function VRDesktopOverlay({
                   disabled={!messageInput.trim() || isSending}
                   aria-label="Send message"
                 >
-                  Send
+                  {isSending ? 'Sending...' : 'Send'}
                 </button>
               </form>
             </div>

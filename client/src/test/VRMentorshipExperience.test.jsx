@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import * as THREE from 'three';
 import { WebXRManager } from '../components/vr/webxrManager.js';
 import { CAMERA_PRESETS, BOUNDARY_LIMITS, DEFAULT_SLIDES } from '../components/vr/VRRoomConstants.js';
 import VRDesktopOverlay from '../components/vr/VRDesktopOverlay.jsx';
+import { buildWhiteboard } from '../components/vr/VRWhiteboard.js';
 import MentorProfile from '../components/MentorProfile.jsx';
 import Navbar from '../components/Navbar.jsx';
 
@@ -175,7 +177,7 @@ describe('VRDesktopOverlay HUD component', () => {
     expect(handBtn).toBeInTheDocument();
     fireEvent.click(handBtn);
 
-    expect(screen.getByText(/Hand Raised — Mentor has been notified/i)).toBeInTheDocument();
+    expect(screen.getByText(/Hand Raised \(Local View\)/i)).toBeInTheDocument();
   });
 
   it('opens glassmorphic side drawer for live chat and agenda notes', () => {
@@ -272,5 +274,285 @@ describe('Navbar 3D / VR Room Navigation', () => {
 
     fireEvent.click(vrLink);
     expect(handleTabChange).toHaveBeenCalledWith('vr-room');
+  });
+});
+
+describe('Multi-user communication & permission handling', () => {
+  const mockProps = {
+    currentSlide: 0,
+    totalSlides: 4,
+    onPrevSlide: vi.fn(),
+    onNextSlide: vi.fn(),
+    onSelectPreset: vi.fn(),
+    onResetCamera: vi.fn(),
+    onEnterVR: vi.fn(),
+    onExit: vi.fn(),
+    mentor: { name: 'Dr. Sarah Chen', title: 'Principal Architect', category: 'Cloud Architecture' },
+    session: null,
+  };
+
+  it('displays user-friendly notice when microphone permission is denied', async () => {
+    const originalMediaDevices = navigator.mediaDevices;
+    const notAllowedError = new Error('Permission denied');
+    notAllowedError.name = 'NotAllowedError';
+
+    Object.defineProperty(navigator, 'mediaDevices', {
+      writable: true,
+      value: {
+        getUserMedia: vi.fn().mockRejectedValue(notAllowedError),
+      },
+    });
+
+    render(<VRDesktopOverlay {...mockProps} />);
+    const micBtn = screen.getByRole('button', { name: /microphone/i });
+    fireEvent.click(micBtn);
+
+    expect(await screen.findByText(/Microphone permission was denied/i)).toBeInTheDocument();
+
+    Object.defineProperty(navigator, 'mediaDevices', {
+      writable: true,
+      value: originalMediaDevices,
+    });
+  });
+
+  it('displays user-friendly notice when camera device is not found', async () => {
+    const originalMediaDevices = navigator.mediaDevices;
+    const notFoundError = new Error('Requested device not found');
+    notFoundError.name = 'NotFoundError';
+
+    Object.defineProperty(navigator, 'mediaDevices', {
+      writable: true,
+      value: {
+        getUserMedia: vi.fn().mockRejectedValue(notFoundError),
+      },
+    });
+
+    render(<VRDesktopOverlay {...mockProps} />);
+    const camBtn = screen.getByRole('button', { name: /video|camera/i });
+    fireEvent.click(camBtn);
+
+    expect(await screen.findByText(/No camera found on this device/i)).toBeInTheDocument();
+
+    Object.defineProperty(navigator, 'mediaDevices', {
+      writable: true,
+      value: originalMediaDevices,
+    });
+  });
+
+  it('projects screen share to whiteboard and stops cleanly when native browser share ends', async () => {
+    const originalMediaDevices = navigator.mediaDevices;
+    const onScreenShareStart = vi.fn();
+    const onScreenShareStop = vi.fn();
+
+    const mockTrack = {
+      stop: vi.fn(),
+      onended: null,
+    };
+    const mockStream = {
+      getTracks: () => [mockTrack],
+      getVideoTracks: () => [mockTrack],
+    };
+
+    Object.defineProperty(navigator, 'mediaDevices', {
+      writable: true,
+      value: {
+        getDisplayMedia: vi.fn().mockResolvedValue(mockStream),
+      },
+    });
+
+    render(
+      <VRDesktopOverlay
+        {...mockProps}
+        onScreenShareStart={onScreenShareStart}
+        onScreenShareStop={onScreenShareStop}
+      />
+    );
+
+    const shareBtn = screen.getByRole('button', { name: /share screen/i });
+    fireEvent.click(shareBtn);
+
+    expect(await screen.findByText(/Sharing Screen — Projected to 3D presentation board/i)).toBeInTheDocument();
+    expect(onScreenShareStart).toHaveBeenCalledWith(mockStream);
+
+    // Trigger browser's native stop share event
+    act(() => {
+      mockTrack.onended();
+    });
+
+    expect(screen.queryByText(/Sharing Screen — Projected to 3D presentation board/i)).not.toBeInTheDocument();
+    expect(onScreenShareStop).toHaveBeenCalled();
+
+    Object.defineProperty(navigator, 'mediaDevices', {
+      writable: true,
+      value: originalMediaDevices,
+    });
+  });
+
+  it('displays truthful local hand-raise status and logs into personal session notes', () => {
+    render(<VRDesktopOverlay {...mockProps} />);
+
+    const handBtn = screen.getByRole('button', { name: /raise hand/i });
+    fireEvent.click(handBtn);
+
+    expect(screen.getByText(/Hand Raised \(Local View\) — Remote mentor notification requires backend real-time event support/i)).toBeInTheDocument();
+
+    // Check personal notes in drawer
+    const chatToggle = screen.getByRole('button', { name: /toggle session chat and notes/i });
+    fireEvent.click(chatToggle);
+
+    const notesTab = screen.getByRole('tab', { name: /Agenda & Notes/i });
+    fireEvent.click(notesTab);
+
+    const notesArea = screen.getByPlaceholderText(/Record architecture notes/i);
+    expect(notesArea.value).toContain('✋ Question pending');
+  });
+});
+
+describe('Authenticated Session Chat & Optimistic Rollback', () => {
+  const sessionProps = {
+    currentSlide: 0,
+    totalSlides: 4,
+    onPrevSlide: vi.fn(),
+    onNextSlide: vi.fn(),
+    onSelectPreset: vi.fn(),
+    onResetCamera: vi.fn(),
+    onEnterVR: vi.fn(),
+    onExit: vi.fn(),
+    mentor: { name: 'Dr. Sarah Chen' },
+    session: {
+      id: 'sess-auth-1',
+      sessionTopic: 'Distributed Systems & WebXR Architecture',
+      status: 'CONFIRMED',
+    },
+  };
+
+  it('shows unauthenticated preview banner when no session is linked', () => {
+    render(<VRDesktopOverlay {...sessionProps} session={null} />);
+    const chatToggle = screen.getByRole('button', { name: /toggle session chat and notes/i });
+    fireEvent.click(chatToggle);
+
+    expect(screen.getByText(/Local 3D Preview: Live backend chat and synchronized meeting features are active during scheduled sessions/i)).toBeInTheDocument();
+  });
+
+  it('fetches meeting info and session messages using the stored session token', async () => {
+    const originalFetch = global.fetch;
+    window.sessionStorage.setItem('mentor_connect_token', 'student-auth-token-123');
+
+    global.fetch = vi.fn().mockImplementation(async (url) => {
+      if (url.includes('/meeting')) {
+        return new Response(
+          JSON.stringify({
+            status: 'success',
+            data: {
+              meeting: {
+                meetingUrl: 'https://meet.jit.si/mentor-connect-session-sess-auth-1',
+                canJoin: true,
+              },
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      if (url.includes('/messages')) {
+        return new Response(
+          JSON.stringify({
+            status: 'success',
+            data: {
+              messages: [
+                {
+                  id: 'msg-remote-1',
+                  content: 'Hi Asha! Welcome to our 3D capstone review.',
+                  senderName: 'Dr. Sarah Chen',
+                  senderRole: 'MENTOR',
+                  createdAt: new Date().toISOString(),
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      return new Response(JSON.stringify({ status: 'success', data: {} }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+
+    render(<VRDesktopOverlay {...sessionProps} />);
+
+    // Jitsi Call link should be displayed
+    const jitsiLink = await screen.findByTitle(/Open synchronized Jitsi video call in new window/i);
+    expect(jitsiLink).toBeInTheDocument();
+    expect(jitsiLink).toHaveAttribute('href', 'https://meet.jit.si/mentor-connect-session-sess-auth-1');
+
+    // Open chat drawer and check remote message
+    const chatToggle = screen.getByRole('button', { name: /toggle session chat and notes/i });
+    fireEvent.click(chatToggle);
+
+    expect(await screen.findByText('Hi Asha! Welcome to our 3D capstone review.')).toBeInTheDocument();
+
+    global.fetch = originalFetch;
+    window.sessionStorage.removeItem('mentor_connect_token');
+  });
+
+  it('handles message send failure with honest rollback and failure indicator', async () => {
+    const originalFetch = global.fetch;
+    window.sessionStorage.setItem('mentor_connect_token', 'student-auth-token-123');
+
+    global.fetch = vi.fn().mockImplementation(async (url, options) => {
+      if (options?.method === 'POST') {
+        return new Response(
+          JSON.stringify({ status: 'error', message: 'Failed to persist message' }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      return new Response(
+        JSON.stringify({ status: 'success', data: { messages: [] } }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    });
+
+    render(<VRDesktopOverlay {...sessionProps} />);
+    const chatToggle = screen.getByRole('button', { name: /toggle session chat and notes/i });
+    fireEvent.click(chatToggle);
+
+    const input = screen.getByPlaceholderText(/Type a question or message/i);
+    fireEvent.change(input, { target: { value: 'Optimistic message testing' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+
+    // Verify delivery failure indicator is rendered
+    expect(await screen.findByText('⚠️ Not delivered')).toBeInTheDocument();
+    expect(screen.getByText(/Message delivery failed/i)).toBeInTheDocument();
+
+    // Verify dismiss button removes failed message
+    const dismissBtn = screen.getByRole('button', { name: 'Dismiss' });
+    fireEvent.click(dismissBtn);
+    expect(screen.queryByText('Optimistic message testing')).not.toBeInTheDocument();
+
+    global.fetch = originalFetch;
+    window.sessionStorage.removeItem('mentor_connect_token');
+  });
+});
+
+describe('VRWhiteboard 3D Screen Share Projection', () => {
+  it('manages video texture projection lifecycle and cleans up safely', () => {
+    const scene = new THREE.Scene();
+    const whiteboard = buildWhiteboard(scene);
+
+    expect(whiteboard.isScreenSharing()).toBe(false);
+
+    const mockTrack = { stop: vi.fn() };
+    const mockStream = {
+      getTracks: () => [mockTrack],
+      getVideoTracks: () => [mockTrack],
+    };
+
+    whiteboard.setScreenShareStream(mockStream);
+    expect(whiteboard.isScreenSharing()).toBe(true);
+
+    whiteboard.clearScreenShare();
+    expect(whiteboard.isScreenSharing()).toBe(false);
+
+    whiteboard.dispose();
   });
 });

@@ -164,6 +164,63 @@ export function buildWhiteboard(scene, customSlides = null) {
   whiteboardTexture.magFilter = THREE.LinearFilter;
   whiteboardTexture.generateMipmaps = true;
 
+  // Active Screen Share Video & Texture state
+  let screenShareVideo = null;
+  let screenShareTexture = null;
+
+  function clearScreenShare() {
+    if (screenShareTexture) {
+      screenShareTexture.dispose();
+      screenShareTexture = null;
+    }
+    if (screenShareVideo) {
+      try {
+        screenShareVideo.pause();
+        screenShareVideo.srcObject = null;
+      } catch {
+        // ignore in test / jsdom environments
+      }
+      screenShareVideo = null;
+    }
+    screenMat.map = whiteboardTexture;
+    screenMat.emissiveMap = whiteboardTexture;
+    screenMat.needsUpdate = true;
+  }
+
+  function setScreenShareStream(mediaStream) {
+    if (!mediaStream) {
+      clearScreenShare();
+      return;
+    }
+    try {
+      if (typeof document !== 'undefined') {
+        const video = document.createElement('video');
+        video.srcObject = mediaStream;
+        video.playsInline = true;
+        video.muted = true;
+        video.autoplay = true;
+        const playPromise = video.play?.();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(() => {});
+        }
+        screenShareVideo = video;
+
+        const videoTexture = new THREE.VideoTexture(video);
+        videoTexture.colorSpace = THREE.SRGBColorSpace;
+        videoTexture.minFilter = THREE.LinearFilter;
+        videoTexture.magFilter = THREE.LinearFilter;
+        videoTexture.generateMipmaps = false;
+
+        screenShareTexture = videoTexture;
+        screenMat.map = videoTexture;
+        screenMat.emissiveMap = videoTexture;
+        screenMat.needsUpdate = true;
+      }
+    } catch (err) {
+      console.warn('[VRWhiteboard] VideoTexture projection fallback:', err.message);
+    }
+  }
+
   // 3. Presentation Screen Mesh (3.2m wide x 1.8m tall, exact 16:9 ratio)
   // Configured with polygonOffset and physical Z-offset to eliminate Z-fighting
   const screenMat = new THREE.MeshStandardMaterial({
@@ -310,7 +367,11 @@ export function buildWhiteboard(scene, customSlides = null) {
       }
       return null;
     },
+    setScreenShareStream,
+    clearScreenShare,
+    isScreenSharing: () => Boolean(screenShareTexture),
     dispose: () => {
+      clearScreenShare();
       whiteboardTexture.dispose();
       screenMat.dispose();
       screenGeo.dispose();

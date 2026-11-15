@@ -130,6 +130,21 @@ export default function VRMentorshipRoom({ mentor = null, session = null, onExit
     }
   }, []);
 
+  // Screen share projection onto 3D whiteboard
+  const handleScreenShareStart = useCallback((stream) => {
+    const wb = systemsRef.current.whiteboard;
+    if (wb) {
+      wb.setScreenShareStream(stream);
+    }
+  }, []);
+
+  const handleScreenShareStop = useCallback(() => {
+    const wb = systemsRef.current.whiteboard;
+    if (wb) {
+      wb.clearScreenShare();
+    }
+  }, []);
+
   // WebXR Session Trigger
   const handleEnterVR = useCallback(async () => {
     const mgr = systemsRef.current.webxrManager;
@@ -403,6 +418,8 @@ export default function VRMentorshipRoom({ mentor = null, session = null, onExit
         onExit={onExit}
         mentor={mentor}
         session={session}
+        onScreenShareStart={handleScreenShareStart}
+        onScreenShareStop={handleScreenShareStop}
       />
     </div>
   );

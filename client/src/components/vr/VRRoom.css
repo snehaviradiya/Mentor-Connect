@@ -681,6 +681,33 @@
   border: 1px solid rgba(45, 212, 191, 0.35);
 }
 
+.vr-session-status-badge.local {
+  background: rgba(100, 116, 139, 0.2);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.vr-hud-meeting-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #6ee7b7;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.vr-hud-meeting-link:hover {
+  background: #10b981;
+  color: #0f172a;
+}
+
 /* Slide jump direct pills */
 .vr-slide-jump-pills {
   display: flex;
@@ -1084,6 +1111,75 @@
 .vr-chat-message-row.user .vr-msg-bubble {
   background: #0d9488;
   color: #ffffff;
+}
+
+.vr-chat-unauthenticated-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  margin: 0.75rem 1rem 0;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+
+.vr-msg-status-text {
+  font-size: 0.625rem;
+  color: #94a3b8;
+  font-style: italic;
+  align-self: flex-end;
+  margin-top: 0.15rem;
+}
+
+.vr-chat-message-row.failed .vr-msg-bubble {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.vr-msg-failed-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  align-self: flex-end;
+}
+
+.vr-msg-failed-label {
+  font-size: 0.6875rem;
+  color: #f87171;
+  font-weight: 600;
+}
+
+.vr-msg-retry-btn,
+.vr-msg-dismiss-btn {
+  background: none;
+  border: none;
+  font-size: 0.6875rem;
+  cursor: pointer;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.vr-msg-retry-btn {
+  color: #38bdf8;
+  text-decoration: underline;
+}
+
+.vr-msg-dismiss-btn {
+  color: #94a3b8;
+}
+
+.vr-msg-retry-btn:hover {
+  color: #7dd3fc;
+}
+
+.vr-msg-dismiss-btn:hover {
+  color: #f1f5f9;
 }
 
 .vr-chat-input-form {
